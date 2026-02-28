@@ -1121,7 +1121,7 @@ export default function Home() {
         <header className="flex-shrink-0 h-11 border-b border-zinc-100 flex items-center justify-between px-5">
           <div className="flex items-center gap-2.5">
             <span className="text-[13px] font-semibold text-zinc-800">MISSI</span>
-            <span className="text-[11px] text-zinc-400 font-medium">Powered by Mistral</span>
+            <span className="text-[11px] text-zinc-400 font-medium">Powered by Mistral AI · Voxtral · ElevenLabs</span>
           </div>
           <div className="flex items-center gap-1.5">
             {currentModel && (
@@ -1157,7 +1157,7 @@ export default function Home() {
           <div className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
             <VoiceOrb state={voiceState} audioLevel={audioLevel} size={100} onClick={handleOrbClick} />
             <h2 className="mt-6 text-[22px] font-semibold text-zinc-800 tracking-tight">What can I help with?</h2>
-            <p className="mt-1.5 text-[13px] text-zinc-400">21 Tools · 4 Models · Voxtral STT · ElevenLabs TTS</p>
+            <p className="mt-1.5 text-[13px] text-zinc-400">21 Tools · 4 Models · Voxtral STT · ElevenLabs TTS · Vision · Multi-Language</p>
 
             {voiceState === "idle" && (
               <div className="mt-8 grid grid-cols-2 gap-2.5 max-w-md w-full">
@@ -1218,7 +1218,7 @@ export default function Home() {
                         {msg.fromVoice && (
                           <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 mb-1">
                             <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/></svg>
-                            Voice
+                            Voxtral Voice
                           </div>
                         )}
                         <p className="text-[14px] text-zinc-800 leading-relaxed">{msg.content}</p>
