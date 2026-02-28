@@ -1233,26 +1233,37 @@ export async function POST(req: NextRequest) {
               toolCalls: assistantMessage.toolCalls,
             });
 
+            // Announce all tools starting (shows parallel execution in UI)
             for (const call of assistantMessage.toolCalls) {
               const fn = call.function;
               const args = JSON.parse(fn.arguments as string);
-
-              // >>> STREAM: tool_start — user sees live tool execution
               controller.enqueue(sseEvent("tool_start", { tool: fn.name, args }));
+            }
 
+            // Execute ALL tools in parallel (like a multi-agent system)
+            const permissionTools = ["search_gmail", "read_gmail", "search_files", "get_calendar", "get_location"];
+            const toolPromises = assistantMessage.toolCalls.map(async (call) => {
+              const fn = call.function;
+              const args = JSON.parse(fn.arguments as string);
               const start = Date.now();
-              const permissionTools = ["search_gmail", "read_gmail", "search_files", "get_calendar", "get_location"];
               const result = permissionTools.includes(fn.name)
                 ? await executePermissionTool(fn.name, args, permContext)
                 : await executeTool(fn.name, args);
               const duration = Date.now() - start;
 
-              // >>> STREAM: tool_result — user sees result immediately
+              // Stream result as soon as THIS tool finishes
               controller.enqueue(sseEvent("tool_result", {
                 tool: fn.name, args, result: result.slice(0, 500), duration,
               }));
 
-              toolResults.push({ tool: fn.name, args, result, duration });
+              return { call, fn, args, result, duration };
+            });
+
+            const resolvedTools = await Promise.all(toolPromises);
+
+            // Add results to message history in order
+            for (const { call, args, result, duration } of resolvedTools) {
+              toolResults.push({ tool: call.function.name, args, result, duration });
               fullMessages.push({ role: "tool", content: result, toolCallId: call.id });
             }
 
