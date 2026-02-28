@@ -643,6 +643,37 @@ export default function Home() {
               break;
             }
 
+            case "content_delta": {
+              // Streaming text — append chunk to content
+              const chunk = String(eventData);
+              streamedContent += chunk;
+              setLatestContent(streamedContent);
+              // Also show streaming text in the messages area as a live preview
+              setMessages(prev => {
+                const last = prev[prev.length - 1];
+                if (last?.role === "assistant" && last?.displayedContent !== undefined) {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = { ...last, content: streamedContent, displayedContent: streamedContent };
+                  return updated;
+                }
+                // First delta — create a new streaming message
+                return [...prev, {
+                  role: "assistant" as const,
+                  content: streamedContent,
+                  displayedContent: streamedContent,
+                  timestamp: Date.now(),
+                }];
+              });
+              break;
+            }
+
+            case "content_done": {
+              // Streaming complete — finalize content
+              streamedContent = String(eventData);
+              setLatestContent(streamedContent);
+              break;
+            }
+
             case "content":
               streamedContent = String(eventData);
               setLatestContent(streamedContent);
@@ -674,11 +705,11 @@ export default function Home() {
       } else {
         const responseTime = Date.now() - apiStart;
         const sources = extractSources(streamedToolResults);
-        const newMsg: Message = {
+        const finalMsg: Message = {
           role: "assistant",
           content: streamedContent,
-          displayedContent: "",
-          toolCalls: streamedToolResults,
+          displayedContent: streamedContent,
+          toolCalls: streamedToolResults.length > 0 ? streamedToolResults : undefined,
           model: streamedModel || undefined,
           plan: streamedPlan || undefined,
           documents: streamedDocuments,
@@ -691,8 +722,18 @@ export default function Home() {
         setBrowsingActivities([]);
         let msgIndex = 0;
         setMessages(prev => {
+          // Check if streaming already created a message (last msg is assistant with same content)
+          const last = prev[prev.length - 1];
+          if (last?.role === "assistant" && last?.displayedContent !== undefined) {
+            // Update existing streaming message with full metadata
+            const updated = [...prev];
+            msgIndex = updated.length - 1;
+            updated[msgIndex] = finalMsg;
+            return updated;
+          }
+          // No streaming message exists — create new
           msgIndex = prev.length;
-          return [...prev, newMsg];
+          return [...prev, finalMsg];
         });
         setIsLoading(false);
 

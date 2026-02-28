@@ -1153,7 +1153,7 @@ export async function POST(req: NextRequest) {
 
           const useTools = !hasImage;
 
-          // Retry wrapper
+          // Retry wrapper (non-streaming, for tool calls)
           const callMistral = async (msgs: Array<Record<string, unknown>>) => {
             for (let attempt = 0; attempt < 3; attempt++) {
               try {
@@ -1166,8 +1166,39 @@ export async function POST(req: NextRequest) {
               } catch (e: unknown) {
                 const err = e as { statusCode?: number };
                 if (err.statusCode === 429 && attempt < 2) {
-                  // Exponential backoff: 3s, 8s
                   await new Promise(r => setTimeout(r, (attempt + 1) * 3000 + 2000));
+                  continue;
+                }
+                throw e;
+              }
+            }
+            throw new Error("Max retries exceeded");
+          };
+
+          // Streaming wrapper (for final response — word-by-word like ChatGPT)
+          const streamMistralFinal = async (msgs: Array<Record<string, unknown>>): Promise<string> => {
+            let fullContent = "";
+            for (let attempt = 0; attempt < 3; attempt++) {
+              try {
+                const stream = await mistral.chat.stream({
+                  model: route.model,
+                  messages: msgs as Parameters<typeof mistral.chat.stream>[0]["messages"],
+                  temperature: 0.7,
+                });
+                for await (const event of stream) {
+                  const delta = event.data?.choices?.[0]?.delta;
+                  if (delta?.content) {
+                    const chunk = String(delta.content);
+                    fullContent += chunk;
+                    controller.enqueue(sseEvent("content_delta", chunk));
+                  }
+                }
+                return fullContent;
+              } catch (e: unknown) {
+                const err = e as { statusCode?: number };
+                if (err.statusCode === 429 && attempt < 2) {
+                  await new Promise(r => setTimeout(r, (attempt + 1) * 3000 + 2000));
+                  fullContent = "";
                   continue;
                 }
                 throw e;
@@ -1249,10 +1280,32 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // 7. Final content
-          controller.enqueue(sseEvent("content", assistantMessage?.content || ""));
+          // 7. Final content — STREAMED word-by-word
+          let finalContent = "";
+          if (rounds === 0 && assistantMessage?.content && (!assistantMessage.toolCalls || assistantMessage.toolCalls.length === 0)) {
+            // Simple query, no tools — use REAL Mistral streaming for instant feel
+            controller.enqueue(sseEvent("status", ""));
+            finalContent = await streamMistralFinal(fullMessages);
+          } else if (assistantMessage?.content && (!assistantMessage.toolCalls || assistantMessage.toolCalls.length === 0)) {
+            // After tool execution — we already have content, simulate streaming
+            const content = String(assistantMessage.content);
+            // Stream in small chunks with micro-delays for visual effect
+            const words = content.split(/(\s+)/);
+            for (let i = 0; i < words.length; i += 3) {
+              const chunk = words.slice(i, i + 3).join("");
+              controller.enqueue(sseEvent("content_delta", chunk));
+              if (i + 3 < words.length) {
+                await new Promise(r => setTimeout(r, 12));
+              }
+            }
+            finalContent = content;
+          } else {
+            finalContent = String(assistantMessage?.content || "I've completed the task.");
+            controller.enqueue(sseEvent("content_delta", finalContent));
+          }
 
           // 8. Done with metadata
+          controller.enqueue(sseEvent("content_done", finalContent));
           controller.enqueue(sseEvent("done", {
             model: route, plan, documents,
             toolResults: toolResults.map(t => ({ tool: t.tool, args: t.args, result: t.result.slice(0, 500), duration: t.duration })),
