@@ -1191,8 +1191,8 @@ export async function POST(req: NextRequest) {
                     const chunk = String(delta.content);
                     fullContent += chunk;
                     controller.enqueue(sseEvent("content_delta", chunk));
-                    // Pace the output for readable streaming (~25ms between tokens)
-                    await new Promise(r => setTimeout(r, 20));
+                    // Pace the output for readable streaming (~35ms between tokens)
+                    await new Promise(r => setTimeout(r, 35));
                   }
                 }
                 return fullContent;
@@ -1311,10 +1311,12 @@ export async function POST(req: NextRequest) {
                 const isSpace = /^\s+$/.test(words[i]);
                 if (!isSpace && i < words.length - 1) {
                   const delay = words[i].endsWith('.') || words[i].endsWith('!') || words[i].endsWith('?') || words[i].endsWith(':')
-                    ? 60  // Pause at sentence/section boundaries
+                    ? 100  // Longer pause at sentence/section boundaries — like a real person
                     : words[i].endsWith(',') || words[i].endsWith(';')
-                    ? 40  // Slight pause at commas
-                    : 25; // Normal word pace
+                    ? 65   // Medium pause at commas
+                    : words[i].endsWith('\n')
+                    ? 80   // Pause at line breaks
+                    : 35;  // Normal word pace — readable, not rushed
                   await new Promise(r => setTimeout(r, delay));
                 }
               }

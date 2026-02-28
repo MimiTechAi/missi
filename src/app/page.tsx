@@ -508,21 +508,35 @@ export default function Home() {
 
   // Feed a text chunk into the streaming TTS pipeline
   const feedStreamingTts = useCallback((fullTextSoFar: string) => {
-    // Check if we have a new complete sentence
     const buffer = ttsBufferRef.current;
     const newText = fullTextSoFar.slice(buffer.length);
     if (!newText) return;
 
-    // Look for sentence boundaries
-    const sentenceEnd = newText.match(/[.!?]\s|[.!?]$/);
+    // Look for sentence boundaries (period, !, ?, or newline after content)
+    const sentenceEnd = newText.match(/[.!?]\s|[.!?]$|\n\n|\n-|\n\*/);
     if (sentenceEnd && sentenceEnd.index !== undefined) {
       const endIdx = sentenceEnd.index + sentenceEnd[0].length;
-      const sentence = (buffer ? "" : "") + newText.slice(0, endIdx).trim();
+      const rawSentence = newText.slice(0, endIdx).trim();
       ttsBufferRef.current = fullTextSoFar.slice(0, buffer.length + endIdx);
 
-      if (sentence.length > 3) {
-        ttsQueueRef.current.push(sentence);
-        processTtsQueue(); // Start playing if not already
+      // Clean markdown for natural speech
+      const cleaned = rawSentence
+        .replace(/#{1,6}\s*/g, "")          // Headers
+        .replace(/\*\*([^*]+)\*\*/g, "$1")  // Bold
+        .replace(/\*([^*]+)\*/g, "$1")      // Italic
+        .replace(/`([^`]+)`/g, "$1")        // Inline code
+        .replace(/```[\s\S]*?```/g, "")     // Code blocks
+        .replace(/^\s*[-*•]\s/gm, "")       // Bullet points
+        .replace(/^\s*\d+\.\s/gm, "")       // Numbered lists
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // Links
+        .replace(/---+/g, "")               // Dividers
+        .replace(/\n+/g, " ")               // Newlines to spaces
+        .replace(/\s{2,}/g, " ")            // Multiple spaces
+        .trim();
+
+      if (cleaned.length > 5) { // Only speak meaningful content
+        ttsQueueRef.current.push(cleaned);
+        processTtsQueue();
       }
     }
   }, [processTtsQueue]);
