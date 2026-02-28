@@ -542,29 +542,32 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
         if (!geo.results?.[0]) return `Location "${args.location}" not found.`;
         const { latitude, longitude, name: city, country } = geo.results[0];
         const weatherRes = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,wind_speed_10m,relative_humidity_2m,weather_code,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&forecast_days=3`
+          `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,wind_speed_10m,wind_direction_10m,relative_humidity_2m,weather_code,precipitation,uv_index&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,weather_code&timezone=auto&forecast_days=3`
         );
         const weather = await weatherRes.json();
         const c = weather.current;
         const d = weather.daily;
         const weatherCodes: Record<number, string> = {
           0: "Clear sky ☀️", 1: "Mainly clear 🌤️", 2: "Partly cloudy ⛅", 3: "Overcast ☁️",
-          45: "Foggy 🌫️", 51: "Light drizzle 🌧️", 61: "Light rain 🌧️", 63: "Moderate rain 🌧️",
-          65: "Heavy rain 🌧️", 71: "Light snow ❄️", 73: "Moderate snow ❄️", 80: "Rain showers 🌦️",
-          95: "Thunderstorm ⛈️",
+          45: "Foggy 🌫️", 48: "Rime fog 🌫️", 51: "Light drizzle 🌧️", 53: "Drizzle 🌧️",
+          55: "Dense drizzle 🌧️", 61: "Light rain 🌧️", 63: "Moderate rain 🌧️",
+          65: "Heavy rain 🌧️", 71: "Light snow ❄️", 73: "Moderate snow ❄️", 75: "Heavy snow ❄️",
+          80: "Rain showers 🌦️", 81: "Moderate showers 🌦️", 82: "Heavy showers 🌧️",
+          85: "Snow showers 🌨️", 95: "Thunderstorm ⛈️", 96: "Thunderstorm + hail ⛈️",
         };
+        const windDirections = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+        const windDir = windDirections[Math.round(c.wind_direction_10m / 45) % 8];
         const condition = weatherCodes[c.weather_code] || `Code ${c.weather_code}`;
-        return `Weather in ${city}, ${country}:
-🌡️ ${c.temperature_2m}°C (feels like ${c.apparent_temperature}°C)
-${condition}
-💨 Wind: ${c.wind_speed_10m} km/h
-💧 Humidity: ${c.relative_humidity_2m}%
-🌧️ Precipitation: ${c.precipitation} mm
-
-3-Day Forecast:
-• Today: ${d.temperature_2m_min[0]}°–${d.temperature_2m_max[0]}°C
-• Tomorrow: ${d.temperature_2m_min[1]}°–${d.temperature_2m_max[1]}°C  
-• Day after: ${d.temperature_2m_min[2]}°–${d.temperature_2m_max[2]}°C`;
+        const uvLevel = c.uv_index > 8 ? "🔴 Very High" : c.uv_index > 5 ? "🟠 High" : c.uv_index > 2 ? "🟡 Moderate" : "🟢 Low";
+        
+        const forecastLines = d.temperature_2m_min.map((_: number, i: number) => {
+          const dayLabel = i === 0 ? "Today" : i === 1 ? "Tomorrow" : new Date(d.time[i]).toLocaleDateString("en", {weekday: "short"});
+          const dayCondition = weatherCodes[d.weather_code[i]] || "";
+          const rain = d.precipitation_sum[i] > 0 ? ` 🌧️ ${d.precipitation_sum[i]}mm` : "";
+          return `• ${dayLabel}: ${d.temperature_2m_min[i]}°–${d.temperature_2m_max[i]}°C ${dayCondition}${rain}`;
+        }).join("\n");
+        
+        return `**Weather in ${city}, ${country}:**\n🌡️ ${c.temperature_2m}°C (feels like ${c.apparent_temperature}°C)\n${condition}\n💨 Wind: ${c.wind_speed_10m} km/h ${windDir}\n💧 Humidity: ${c.relative_humidity_2m}%\n🌧️ Precipitation: ${c.precipitation} mm\n☀️ UV Index: ${c.uv_index} — ${uvLevel}\n\n**3-Day Forecast:**\n${forecastLines}\n\n🌅 Sunrise: ${d.sunrise[0].split("T")[1]} | 🌇 Sunset: ${d.sunset[0].split("T")[1]}`;
       } catch {
         return "Weather service temporarily unavailable.";
       }
@@ -741,32 +744,40 @@ ${condition}
     case "get_stock_price": {
       try {
         const res = await fetch(
-          `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(args.symbol)}?interval=1d&range=1d`
+          `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(args.symbol)}?interval=1d&range=5d`
         );
         const data = await res.json();
         const meta = data.chart?.result?.[0]?.meta;
-        if (!meta) return `Stock symbol "${args.symbol}" not found.`;
+        if (!meta) return `Stock symbol "${args.symbol}" not found. Try common tickers like TSLA, AAPL, GOOGL, MSFT, AMZN, NVDA.`;
         const price = meta.regularMarketPrice;
         const prevClose = meta.chartPreviousClose;
         const change = ((price - prevClose) / prevClose * 100).toFixed(2);
         const direction = Number(change) >= 0 ? "📈" : "📉";
-        return `${direction} ${args.symbol.toUpperCase()}: $${price.toFixed(2)} (${Number(change) >= 0 ? "+" : ""}${change}% today)\nPrevious close: $${prevClose.toFixed(2)}\nCurrency: ${meta.currency}`;
+        const marketState = meta.exchangeName || "NYSE";
+        const dayHigh = meta.regularMarketDayHigh || price;
+        const dayLow = meta.regularMarketDayLow || price;
+        const fiftyTwoHigh = meta.fiftyTwoWeekHigh;
+        const fiftyTwoLow = meta.fiftyTwoWeekLow;
+        return `${direction} **${args.symbol.toUpperCase()}** — $${price.toFixed(2)} (${Number(change) >= 0 ? "+" : ""}${change}%)\n\n📊 Previous close: $${prevClose.toFixed(2)}\n📉 Day range: $${dayLow?.toFixed(2)} – $${dayHigh?.toFixed(2)}${fiftyTwoHigh ? `\n📅 52-week range: $${fiftyTwoLow?.toFixed(2)} – $${fiftyTwoHigh?.toFixed(2)}` : ""}\n🏛️ Exchange: ${marketState}\n💱 Currency: ${meta.currency}`;
       } catch {
-        return `Could not fetch stock price for ${args.symbol}.`;
+        return `Could not fetch stock price for ${args.symbol}. The market may be closed.`;
       }
     }
 
     case "get_crypto_price": {
       try {
         const res = await fetch(
-          `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(args.coin)}&vs_currencies=usd,eur&include_24hr_change=true`
+          `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(args.coin)}&vs_currencies=usd,eur&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true`
         );
         const data = await res.json();
         const coin = data[args.coin.toLowerCase()];
-        if (!coin) return `Cryptocurrency "${args.coin}" not found. Try 'bitcoin', 'ethereum', 'solana'.`;
+        if (!coin) return `Cryptocurrency "${args.coin}" not found. Try 'bitcoin', 'ethereum', 'solana', 'dogecoin', 'cardano'.`;
         const change = coin.usd_24h_change?.toFixed(2) || "N/A";
         const dir = Number(change) >= 0 ? "📈" : "📉";
-        return `${dir} ${args.coin.charAt(0).toUpperCase() + args.coin.slice(1)}:\n💵 $${coin.usd?.toLocaleString()} USD\n💶 €${coin.eur?.toLocaleString()} EUR\n24h change: ${Number(change) >= 0 ? "+" : ""}${change}%`;
+        const name = args.coin.charAt(0).toUpperCase() + args.coin.slice(1);
+        const marketCap = coin.usd_market_cap ? `$${(coin.usd_market_cap / 1e9).toFixed(2)}B` : "N/A";
+        const volume = coin.usd_24h_vol ? `$${(coin.usd_24h_vol / 1e9).toFixed(2)}B` : "N/A";
+        return `${dir} **${name}**\n\n💵 $${coin.usd?.toLocaleString()} USD\n💶 €${coin.eur?.toLocaleString()} EUR\n📊 24h change: ${Number(change) >= 0 ? "+" : ""}${change}%\n💰 Market cap: ${marketCap}\n📈 24h volume: ${volume}`;
       } catch {
         return `Could not fetch crypto price for ${args.coin}.`;
       }
@@ -809,11 +820,11 @@ ${condition}
 
     case "news_headlines": {
       try {
-        const topic = args.topic || "latest";
+        const topic = args.topic || "breaking";
         const country = args.country || "";
-        const searchQuery = country 
-          ? `${topic} news ${country} today ${new Date().toISOString().split("T")[0]}`
-          : `${topic} news today ${new Date().toISOString().split("T")[0]}`;
+        // Ensure we get English news unless country-specific
+        const langHint = country === "de" ? "deutsch" : country === "fr" ? "french" : country === "es" ? "español" : "";
+        const searchQuery = `${topic} news ${langHint} today ${new Date().toLocaleDateString("en-US")}`.trim();
         const res = await fetch(
           `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`,
           { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" } }
@@ -821,14 +832,14 @@ ${condition}
         const html = await res.text();
         const blocks = html.match(/<div class="result results_links[\s\S]*?<\/div>\s*<\/div>/g) || [];
         const headlines: string[] = [];
-        for (const block of blocks.slice(0, 8)) {
+        for (const block of blocks.slice(0, 10)) {
           const titleMatch = block.match(/class="result__a"[^>]*>([\s\S]*?)<\/a>/);
           const snippetMatch = block.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/a?/);
           const title = titleMatch?.[1]?.replace(/<[^>]*>/g, "").trim() || "";
           const snippet = snippetMatch?.[1]?.replace(/<[^>]*>/g, "").trim() || "";
-          if (title) headlines.push(`📰 ${title}\n   ${snippet}`);
+          if (title && title.length > 10) headlines.push(`📰 ${title}\n   ${snippet}`);
         }
-        return `📰 Top Headlines — ${topic}${country ? ` (${country.toUpperCase()})` : ""}:\n\n${headlines.join("\n\n")}` || "No headlines found.";
+        return `📰 Top Headlines — ${topic}${country ? ` (${country.toUpperCase()})` : ""}:\n\n${headlines.slice(0, 8).join("\n\n")}` || "No headlines found.";
       } catch {
         return "News service temporarily unavailable.";
       }
