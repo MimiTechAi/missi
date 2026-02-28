@@ -41,11 +41,12 @@ type Message = {
   plan?: string[];
   documents?: Document[];
   sources?: Source[];
+  suggestions?: string[];
   image?: string;
   timestamp?: number;
   displayedContent?: string;
-  responseTime?: number; // ms from send to response
-  fromVoice?: boolean; // true if input came from STT
+  responseTime?: number;
+  fromVoice?: boolean;
 };
 
 type VoiceState = "idle" | "listening" | "thinking" | "speaking";
@@ -529,6 +530,7 @@ export default function Home() {
       let streamedPlan: string[] | null = null;
       let streamedToolResults: ToolResult[] = [];
       let streamedDocuments: Document[] = [];
+      let streamedSuggestions: string[] = [];
       const activeTools: { tool: string; args: Record<string, string>; status: "running" | "done"; result?: string; duration?: number }[] = [];
 
       // Live tool cards state
@@ -682,6 +684,7 @@ export default function Home() {
             case "done":
               if (eventData.documents) streamedDocuments = eventData.documents;
               if (eventData.model) streamedModel = eventData.model;
+              if (eventData.suggestions) streamedSuggestions = eventData.suggestions;
               break;
 
             case "error":
@@ -714,6 +717,7 @@ export default function Home() {
           plan: streamedPlan || undefined,
           documents: streamedDocuments,
           sources: sources.length > 0 ? sources : undefined,
+          suggestions: streamedSuggestions.length > 0 ? streamedSuggestions : undefined,
           timestamp: Date.now(),
           responseTime,
         };
@@ -1639,6 +1643,19 @@ export default function Home() {
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                           </button>
                         </div>
+
+                        {/* Follow-up suggestions — clickable chips */}
+                        {msg.suggestions && msg.suggestions.length > 0 && i === messages.length - 1 && (
+                          <div className="mt-4 flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-500" style={{ animationDelay: "300ms" }}>
+                            {msg.suggestions.map((suggestion, j) => (
+                              <button key={j} onClick={() => sendMessage(suggestion)}
+                                className="px-3.5 py-2 rounded-xl text-[13px] text-zinc-600 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 hover:border-zinc-300 hover:text-zinc-800 transition-all duration-150 flex items-center gap-1.5 group">
+                                <span className="text-zinc-400 group-hover:text-orange-500 transition-colors text-[11px]">→</span>
+                                {suggestion}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

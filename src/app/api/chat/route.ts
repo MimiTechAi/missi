@@ -1304,10 +1304,32 @@ export async function POST(req: NextRequest) {
             controller.enqueue(sseEvent("content_delta", finalContent));
           }
 
-          // 8. Done with metadata
+          // 8. Generate follow-up suggestions
+          const suggestions: string[] = [];
+          try {
+            const suggestRes = await mistral.chat.complete({
+              model: "mistral-small-latest",
+              messages: [
+                {
+                  role: "system",
+                  content: `Based on this AI response, generate exactly 3 brief follow-up questions or actions the user might want next. Each should be 3-8 words. Respond in the SAME LANGUAGE as the response. Return ONLY a JSON array of 3 strings. No markdown, no explanation. Example: ["Tell me more about X","Compare X with Y","Create a detailed report"]`,
+                },
+                { role: "user", content: finalContent.slice(0, 500) },
+              ],
+              temperature: 0.5,
+            });
+            const suggestText = String(suggestRes.choices?.[0]?.message?.content || "");
+            const match = suggestText.match(/\[[\s\S]*\]/);
+            if (match) {
+              const parsed = JSON.parse(match[0]);
+              if (Array.isArray(parsed)) suggestions.push(...parsed.slice(0, 3));
+            }
+          } catch { /* suggestions are optional */ }
+
+          // 9. Done with metadata
           controller.enqueue(sseEvent("content_done", finalContent));
           controller.enqueue(sseEvent("done", {
-            model: route, plan, documents,
+            model: route, plan, documents, suggestions,
             toolResults: toolResults.map(t => ({ tool: t.tool, args: t.args, result: t.result.slice(0, 500), duration: t.duration })),
             usage: { totalRounds: rounds, toolCalls: toolResults.length },
           }));
