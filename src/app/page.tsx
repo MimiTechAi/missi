@@ -255,6 +255,9 @@ export default function Home() {
   const bargeInStreamRef = useRef<MediaStream | null>(null);
   const bargeInCtxRef = useRef<AudioContext | null>(null);
   const bargeInAnimRef = useRef<number>(0);
+  const ttsQueueRef = useRef<string[]>([]);
+  const ttsPlayingRef = useRef(false);
+  const ttsBufferRef = useRef("");
 
   // Typing animation for latest assistant message (orb view)
   const typedContent = useTypingEffect(latestContent, 12, latestContent.length > 0);
@@ -446,6 +449,94 @@ export default function Home() {
     }
   }, []); // No deps needed — uses refs
 
+  // ── Streaming TTS — speaks sentences as they arrive during text streaming ──
+  const processTtsQueue = useCallback(async () => {
+    if (ttsPlayingRef.current) return; // Already playing
+    ttsPlayingRef.current = true;
+    setVoiceState("speaking");
+
+    while (ttsQueueRef.current.length > 0) {
+      const sentence = ttsQueueRef.current.shift()!;
+      // Strip markdown for TTS
+      const ttsText = sentence
+        .replace(/#{1,6}\s*/g, "")
+        .replace(/\*\*([^*]+)\*\*/g, "$1")
+        .replace(/\*([^*]+)\*/g, "$1")
+        .replace(/`([^`]+)`/g, "$1")
+        .replace(/```[\s\S]*?```/g, "")
+        .replace(/^\s*[-*]\s/gm, "")
+        .replace(/^\s*\d+\.\s/gm, "")
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+        .trim();
+      if (!ttsText || ttsText.length < 2) continue;
+
+      try {
+        const res = await fetch("/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: ttsText, language: sttLangRef.current, voiceId: currentVoiceIdRef.current }),
+        });
+        if (res.ok && audioRef.current) {
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          await new Promise<void>((resolve) => {
+            audioRef.current!.src = url;
+            audioRef.current!.onended = () => { URL.revokeObjectURL(url); resolve(); };
+            audioRef.current!.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+            audioRef.current!.onpause = () => { URL.revokeObjectURL(url); resolve(); };
+            audioRef.current!.play().catch(() => resolve());
+          });
+          // If barge-in interrupted, clear queue
+          if (audioRef.current?.paused && audioRef.current?.currentTime === 0) {
+            ttsQueueRef.current = [];
+            break;
+          }
+        }
+      } catch {
+        // TTS failed, continue with next sentence
+      }
+    }
+
+    ttsPlayingRef.current = false;
+    setVoiceState("idle");
+    setAudioLevel(0);
+    // Auto-relisten in continuous mode
+    if (shouldRelistenRef.current && startListeningRef.current) {
+      setTimeout(() => startListeningRef.current?.(), 400);
+    }
+  }, []);
+
+  // Feed a text chunk into the streaming TTS pipeline
+  const feedStreamingTts = useCallback((fullTextSoFar: string) => {
+    // Check if we have a new complete sentence
+    const buffer = ttsBufferRef.current;
+    const newText = fullTextSoFar.slice(buffer.length);
+    if (!newText) return;
+
+    // Look for sentence boundaries
+    const sentenceEnd = newText.match(/[.!?]\s|[.!?]$/);
+    if (sentenceEnd && sentenceEnd.index !== undefined) {
+      const endIdx = sentenceEnd.index + sentenceEnd[0].length;
+      const sentence = (buffer ? "" : "") + newText.slice(0, endIdx).trim();
+      ttsBufferRef.current = fullTextSoFar.slice(0, buffer.length + endIdx);
+
+      if (sentence.length > 3) {
+        ttsQueueRef.current.push(sentence);
+        processTtsQueue(); // Start playing if not already
+      }
+    }
+  }, [processTtsQueue]);
+
+  // Flush remaining TTS buffer (called when streaming is complete)
+  const flushStreamingTts = useCallback((fullText: string) => {
+    const remaining = fullText.slice(ttsBufferRef.current.length).trim();
+    if (remaining.length > 3) {
+      ttsQueueRef.current.push(remaining);
+      processTtsQueue();
+    }
+    ttsBufferRef.current = "";
+  }, [processTtsQueue]);
+
   // Image to base64
   const imageToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -468,6 +559,10 @@ export default function Home() {
     setCurrentPlan(null);
     setLatestContent("");
     setThinkingStatus("");
+    // Reset streaming TTS state for new message
+    ttsQueueRef.current = [];
+    ttsPlayingRef.current = false;
+    ttsBufferRef.current = "";
 
     // Filler audio — speak a brief acknowledgment while LLM is thinking
     const fillers: Record<string, string[]> = {
@@ -651,6 +746,8 @@ export default function Home() {
               const chunk = String(eventData);
               streamedContent += chunk;
               setLatestContent(streamedContent);
+              // Feed into streaming TTS pipeline — speaks sentences as they arrive
+              feedStreamingTts(streamedContent);
               // Also show streaming text in the messages area as a live preview
               setMessages(prev => {
                 const last = prev[prev.length - 1];
@@ -742,14 +839,20 @@ export default function Home() {
         });
         setIsLoading(false);
 
-        await speakText(streamedContent, msgIndex);
+        // Flush any remaining text that didn't form a full sentence yet
+        flushStreamingTts(streamedContent);
+        // If no streaming TTS started (e.g. barge-in, non-voice mode), fall back to speakText
+        if (!ttsPlayingRef.current && !ttsQueueRef.current.length) {
+          await speakText(streamedContent, msgIndex);
+        }
       }
       setActiveTools([]);
+      ttsBufferRef.current = "";
     } catch {
       setMessages((prev) => [...prev, { role: "assistant", content: "Connection lost. Please try again.", timestamp: Date.now() }]);
       setVoiceState("idle");
     } finally { setIsLoading(false); }
-  }, [messages, speakText]);
+  }, [messages, speakText, feedStreamingTts, flushStreamingTts]);
 
   // Keep ref in sync
   useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
