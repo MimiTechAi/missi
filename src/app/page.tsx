@@ -1443,6 +1443,11 @@ export default function Home() {
                 🛠 {stats.totalTools} tool{stats.totalTools !== 1 ? "s" : ""}
               </span>
             )}
+            {messages.length > 0 && (
+              <span className="text-[11px] px-2 py-0.5 rounded-md bg-zinc-50 border border-zinc-200 text-zinc-500" title="Conversation context — MISSI remembers all messages">
+                📝 {messages.length} in context
+              </span>
+            )}
             {voiceState !== "idle" && (
               <span className={`text-[11px] px-2 py-0.5 rounded-md border font-medium ${
                 voiceState === "listening" ? "bg-red-50 border-red-200 text-red-500" :
