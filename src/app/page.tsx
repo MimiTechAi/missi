@@ -250,6 +250,9 @@ export default function Home() {
   const sttLangRef = useRef("en-US");
   const sendMessageRef = useRef<(text: string, image?: string, fromVoice?: boolean) => Promise<void>>(undefined);
   const startListeningRef = useRef<() => void>(undefined);
+  const bargeInStreamRef = useRef<MediaStream | null>(null);
+  const bargeInCtxRef = useRef<AudioContext | null>(null);
+  const bargeInAnimRef = useRef<number>(0);
 
   // Typing animation for latest assistant message (orb view)
   const typedContent = useTypingEffect(latestContent, 12, latestContent.length > 0);
@@ -392,9 +395,14 @@ export default function Home() {
               audioRef.current.src = url;
               audioRef.current.onended = () => { URL.revokeObjectURL(url); resolve(); };
               audioRef.current.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+              audioRef.current.onpause = () => { URL.revokeObjectURL(url); resolve(); }; // Barge-in: resolve on pause so speakText exits cleanly
               audioRef.current.play().catch(() => resolve());
             } else resolve();
           });
+          // If barge-in interrupted, stop speaking remaining chunks
+          if (audioRef.current?.paused && audioRef.current?.currentTime === 0) {
+            break; // Exit chunk loop — user is talking
+          }
         } else {
           // ElevenLabs failed (quota, auth, etc) — use browser TTS fallback
           await new Promise<void>((resolve) => {
@@ -1080,6 +1088,100 @@ export default function Home() {
       );
     }
   }, []);
+
+  // ── Voice Barge-In Detection (GPT-4o style) ──
+  // While MISSI is speaking, monitor mic for user voice.
+  // If user starts talking → interrupt playback + start listening immediately.
+  useEffect(() => {
+    if (voiceState !== "speaking") {
+      // Cleanup when not speaking
+      if (bargeInStreamRef.current) {
+        bargeInStreamRef.current.getTracks().forEach(t => t.stop());
+        bargeInStreamRef.current = null;
+      }
+      if (bargeInCtxRef.current) {
+        bargeInCtxRef.current.close();
+        bargeInCtxRef.current = null;
+      }
+      cancelAnimationFrame(bargeInAnimRef.current);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        });
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+        bargeInStreamRef.current = stream;
+
+        const ctx = new AudioContext();
+        bargeInCtxRef.current = ctx;
+        const source = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 512;
+        source.connect(analyser);
+
+        const dataArray = new Float32Array(analyser.fftSize);
+        const BARGE_IN_THRESHOLD = 0.04; // RMS threshold — higher than silence but catches speech
+        let consecutiveFrames = 0;
+        const REQUIRED_FRAMES = 4; // ~4 frames of voice = ~66ms of sustained speech
+
+        const checkVoice = () => {
+          if (cancelled) return;
+          analyser.getFloatTimeDomainData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i] * dataArray[i];
+          const rms = Math.sqrt(sum / dataArray.length);
+
+          if (rms > BARGE_IN_THRESHOLD) {
+            consecutiveFrames++;
+            if (consecutiveFrames >= REQUIRED_FRAMES) {
+              // USER IS TALKING — BARGE IN!
+              console.log("[MISSI] Barge-in detected! RMS:", rms.toFixed(4));
+              // Stop playback
+              if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+              speechSynthesis.cancel();
+              setAudioLevel(0);
+              // Cleanup barge-in monitoring
+              stream.getTracks().forEach(t => t.stop());
+              ctx.close();
+              bargeInStreamRef.current = null;
+              bargeInCtxRef.current = null;
+              // Start listening
+              setVoiceState("idle"); // Brief reset so startListening picks up clean
+              setTimeout(() => startListeningRef.current?.(), 100);
+              return;
+            }
+          } else {
+            consecutiveFrames = Math.max(0, consecutiveFrames - 1); // Decay slowly
+          }
+
+          bargeInAnimRef.current = requestAnimationFrame(checkVoice);
+        };
+
+        bargeInAnimRef.current = requestAnimationFrame(checkVoice);
+      } catch (err) {
+        console.warn("[MISSI] Barge-in mic access denied:", err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(bargeInAnimRef.current);
+      if (bargeInStreamRef.current) {
+        bargeInStreamRef.current.getTracks().forEach(t => t.stop());
+        bargeInStreamRef.current = null;
+      }
+      if (bargeInCtxRef.current) {
+        bargeInCtxRef.current.close();
+        bargeInCtxRef.current = null;
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voiceState]);
 
   // ── Wake Word Detection ("Hey Missi") ──
   const activateRef = useRef(activate);
