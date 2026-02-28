@@ -1191,6 +1191,8 @@ export async function POST(req: NextRequest) {
                     const chunk = String(delta.content);
                     fullContent += chunk;
                     controller.enqueue(sseEvent("content_delta", chunk));
+                    // Pace the output for readable streaming (~25ms between tokens)
+                    await new Promise(r => setTimeout(r, 20));
                   }
                 }
                 return fullContent;
@@ -1300,13 +1302,21 @@ export async function POST(req: NextRequest) {
           } else if (assistantMessage?.content && (!assistantMessage.toolCalls || assistantMessage.toolCalls.length === 0)) {
             // After tool execution — we already have content, simulate streaming
             const content = String(assistantMessage.content);
-            // Stream in small chunks with micro-delays for visual effect
+            // Stream word-by-word at readable pace (like ChatGPT ~30ms/word)
             const words = content.split(/(\s+)/);
-            for (let i = 0; i < words.length; i += 3) {
-              const chunk = words.slice(i, i + 3).join("");
-              controller.enqueue(sseEvent("content_delta", chunk));
-              if (i + 3 < words.length) {
-                await new Promise(r => setTimeout(r, 12));
+            for (let i = 0; i < words.length; i++) {
+              if (words[i]) {
+                controller.enqueue(sseEvent("content_delta", words[i]));
+                // Vary the speed slightly for natural feel
+                const isSpace = /^\s+$/.test(words[i]);
+                if (!isSpace && i < words.length - 1) {
+                  const delay = words[i].endsWith('.') || words[i].endsWith('!') || words[i].endsWith('?') || words[i].endsWith(':')
+                    ? 60  // Pause at sentence/section boundaries
+                    : words[i].endsWith(',') || words[i].endsWith(';')
+                    ? 40  // Slight pause at commas
+                    : 25; // Normal word pace
+                  await new Promise(r => setTimeout(r, delay));
+                }
               }
             }
             finalContent = content;

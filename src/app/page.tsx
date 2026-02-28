@@ -265,7 +265,7 @@ export default function Home() {
   // Load messages on mount
   useEffect(() => { setMessages(loadMessages()); }, []);
   useEffect(() => { if (messages.length > 0) saveMessages(messages); }, [messages]);
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, latestContent]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1682,11 +1682,12 @@ export default function Home() {
 
                       {/* RESPONSE TEXT — no bubble, clean text (like ChatGPT) */}
                       <div className="ml-8">
-                        <div className="prose prose-zinc prose-sm max-w-none text-[15px] leading-[1.8] prose-headings:text-zinc-800 prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-strong:text-zinc-900 prose-code:text-orange-600 prose-code:bg-orange-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[13px] prose-pre:bg-zinc-50 prose-pre:border prose-pre:border-zinc-200 prose-pre:rounded-xl prose-a:text-orange-600 prose-a:no-underline hover:prose-a:underline">
-                          {msg.displayedContent !== undefined && msg.displayedContent !== msg.content && msg.displayedContent !== ""
-                            ? <><ReactMarkdown>{msg.displayedContent}</ReactMarkdown><span className="inline-block w-0.5 h-[17px] bg-orange-400 ml-0.5 animate-pulse align-text-bottom rounded-full" /></>
-                            : <ReactMarkdown>{msg.content}</ReactMarkdown>
-                          }
+                        <div className="prose prose-zinc prose-sm max-w-none text-[15px] leading-[1.8] prose-headings:text-zinc-800 prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-strong:text-zinc-900 prose-code:text-orange-600 prose-code:bg-orange-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[13px] prose-pre:bg-zinc-900 prose-pre:text-zinc-100 prose-pre:border-0 prose-pre:rounded-xl prose-a:text-orange-600 prose-a:no-underline hover:prose-a:underline">
+                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          {/* Streaming cursor — shows while this message is still being generated */}
+                          {isLoading && i === messages.length - 1 && msg.role === "assistant" && (
+                            <span className="inline-block w-[3px] h-[18px] bg-orange-400 ml-0.5 animate-pulse align-text-bottom rounded-full" />
+                          )}
                         </div>
 
                         {/* Tool cards — clean, expandable (like Perplexity sources) */}
@@ -1849,12 +1850,15 @@ export default function Home() {
               )}
 
               {/* Loading indicator */}
-              {isLoading && (
-                <div className="flex items-center gap-2.5 ml-8">
-                  <div className="flex gap-1">
-                    <div className="w-1.5 h-1.5 bg-zinc-300 rounded-full animate-bounce" style={{animationDelay: "0ms"}} />
-                    <div className="w-1.5 h-1.5 bg-zinc-300 rounded-full animate-bounce" style={{animationDelay: "150ms"}} />
-                    <div className="w-1.5 h-1.5 bg-zinc-300 rounded-full animate-bounce" style={{animationDelay: "300ms"}} />
+              {isLoading && !latestContent && (
+                <div className="flex items-center gap-3 ml-8 py-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-[9px] font-black text-white">M</div>
+                    <div className="flex gap-[3px]">
+                      <div className="w-2 h-2 bg-orange-400/60 rounded-full animate-bounce" style={{animationDelay: "0ms"}} />
+                      <div className="w-2 h-2 bg-orange-400/60 rounded-full animate-bounce" style={{animationDelay: "150ms"}} />
+                      <div className="w-2 h-2 bg-orange-400/60 rounded-full animate-bounce" style={{animationDelay: "300ms"}} />
+                    </div>
                   </div>
                   {thinkingStatus && <span className="text-[12px] text-amber-500 font-medium">{thinkingStatus}</span>}
                   {currentModel && !thinkingStatus && (
