@@ -1,0 +1,13 @@
+[model]
+provider = "mistral"
+model = "mistral-large-latest"
+
+[agent]
+name = "jarvis-dev"
+type = "default"
+system_prompt = """You are helping develop JARVIS, a voice-first AI agent.
+Focus on TypeScript/Next.js code quality, Mistral API best practices, 
+and production-ready implementations."""
+
+[tools]
+auto_approve = ["read_file", "grep", "list_directory"]
