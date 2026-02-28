@@ -573,7 +573,11 @@ export default function Home() {
   // Keep ref in sync
   useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-  // STT with silence detection and auto-relisten
+  // ============================================================
+  // Voxtral STT — Mistral-native Speech-to-Text
+  // Records via MediaRecorder, detects silence via AudioContext,
+  // sends audio to /api/stt (Voxtral) for transcription
+  // ============================================================
   const startListening = useCallback(() => {
     // Interrupt any playing audio
     if (audioRef.current && !audioRef.current.paused) {
@@ -582,74 +586,165 @@ export default function Home() {
       speechSynthesis.cancel();
       setAudioLevel(0);
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { alert("Speech recognition requires Chrome."); return; }
-    
-    const recognition = new SR();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = sttLangRef.current;
-    
+
+    setVoiceState("listening");
+    setInput("");
+
+    let mediaRecorder: MediaRecorder | null = null;
+    let audioChunks: Blob[] = [];
+    let audioCtx: AudioContext | null = null;
+    let analyserNode: AnalyserNode | null = null;
     let silenceTimer: ReturnType<typeof setTimeout> | null = null;
-    let finalTranscript = "";
     let hasSpeech = false;
-    
-    recognition.onstart = () => {
-      setVoiceState("listening");
-      setInput("");
-      finalTranscript = "";
-      hasSpeech = false;
-    };
-    
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onresult = (event: any) => {
-      hasSpeech = true;
-      let interim = "";
-      finalTranscript = "";
-      
-      for (let i = 0; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result.isFinal) {
-          finalTranscript += result[0].transcript;
-        } else {
-          interim += result[0].transcript;
-        }
-      }
-      
-      setInput(finalTranscript + interim);
-      
-      if (silenceTimer) clearTimeout(silenceTimer);
-      
-      if (finalTranscript.trim()) {
-        silenceTimer = setTimeout(() => {
-          recognition.stop();
-          // Use ref to get latest sendMessage
-          sendMessageRef.current?.(finalTranscript.trim(), undefined, true);
-        }, 1000); // 1s silence = done (VITA-Audio paper: <500ms ideal)
-      }
-    };
-    
-    recognition.onerror = (e: { error: string }) => {
-      if (e.error === "no-speech") {
-        if (shouldRelistenRef.current) {
-          setTimeout(() => startListeningRef.current?.(), 500);
-        } else {
-          setVoiceState("idle");
-        }
-      } else if (e.error === "aborted") {
-        // Intentional — do nothing
-      } else {
+    let silenceStart = 0;
+    let animFrame = 0;
+    const SILENCE_THRESHOLD = 0.015; // RMS below this = silence
+    const SILENCE_DURATION = 1200; // ms of silence before sending
+    let stopped = false;
+
+    navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+      .then((stream) => {
+        audioCtx = new AudioContext();
+        const source = audioCtx.createMediaStreamSource(stream);
+        analyserNode = audioCtx.createAnalyser();
+        analyserNode.fftSize = 512;
+        source.connect(analyserNode);
+        const dataArray = new Float32Array(analyserNode.fftSize);
+
+        mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          if (audioCtx) audioCtx.close();
+          cancelAnimationFrame(animFrame);
+
+          if (!hasSpeech || audioChunks.length === 0) {
+            // No speech detected — relisten or idle
+            if (shouldRelistenRef.current && !stopped) {
+              setTimeout(() => startListeningRef.current?.(), 500);
+            } else {
+              setVoiceState("idle");
+            }
+            return;
+          }
+
+          // Show "transcribing" state
+          setInput("🎙️ Transcribing with Voxtral...");
+          setVoiceState("thinking");
+
+          const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+          const formData = new FormData();
+          formData.append("audio", audioBlob);
+          // Map STT language code to ISO 639-1
+          const lang = sttLangRef.current?.split("-")[0] || "en";
+          formData.append("language", lang);
+
+          try {
+            const res = await fetch("/api/stt", { method: "POST", body: formData });
+            if (!res.ok) throw new Error(`STT ${res.status}`);
+            const data = await res.json();
+            const text = (data.text || "").trim();
+            if (text) {
+              setInput(text);
+              sendMessageRef.current?.(text, undefined, true);
+            } else {
+              // Empty transcription — relisten
+              if (shouldRelistenRef.current && !stopped) {
+                setTimeout(() => startListeningRef.current?.(), 300);
+              } else {
+                setVoiceState("idle");
+                setInput("");
+              }
+            }
+          } catch (err) {
+            console.error("Voxtral STT failed, falling back to browser:", err);
+            // Fallback: try browser SpeechRecognition
+            fallbackBrowserSTT();
+          }
+        };
+
+        // Monitor audio levels for silence detection
+        const checkAudio = () => {
+          if (!analyserNode || stopped) return;
+          analyserNode.getFloatTimeDomainData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i] * dataArray[i];
+          const rms = Math.sqrt(sum / dataArray.length);
+
+          if (rms > SILENCE_THRESHOLD) {
+            hasSpeech = true;
+            silenceStart = 0;
+            if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+          } else if (hasSpeech) {
+            if (!silenceStart) silenceStart = Date.now();
+            if (Date.now() - silenceStart > SILENCE_DURATION && !silenceTimer) {
+              silenceTimer = setTimeout(() => {
+                if (mediaRecorder?.state === "recording") {
+                  mediaRecorder.stop();
+                }
+              }, 50);
+            }
+          }
+          animFrame = requestAnimationFrame(checkAudio);
+        };
+
+        mediaRecorder.start(250); // collect in 250ms chunks
+        checkAudio();
+
+        // Store reference for external stop
+        recognitionRef.current = {
+          stop: () => {
+            stopped = true;
+            if (mediaRecorder?.state === "recording") mediaRecorder.stop();
+            else {
+              stream.getTracks().forEach(t => t.stop());
+              if (audioCtx) audioCtx.close();
+              cancelAnimationFrame(animFrame);
+            }
+          }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any;
+      })
+      .catch((err) => {
+        console.error("Mic access denied:", err);
         setVoiceState("idle");
-      }
-    };
-    
-    recognition.onend = () => {
-      if (silenceTimer) clearTimeout(silenceTimer);
-    };
-    
-    recognitionRef.current = recognition;
-    recognition.start();
+        alert("Microphone access is required for voice input.");
+      });
+
+    // Browser STT fallback (used if Voxtral fails)
+    function fallbackBrowserSTT() {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SR) { setVoiceState("idle"); return; }
+      const recog = new SR();
+      recog.continuous = true;
+      recog.interimResults = true;
+      recog.lang = sttLangRef.current;
+      let ft = "";
+      recog.onresult = (event: { results: { isFinal: boolean; 0: { transcript: string } }[]; length?: number }) => {
+        ft = "";
+        for (let i = 0; i < (event.results?.length || 0); i++) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const r = (event as any).results[i];
+          if (r.isFinal) ft += r[0].transcript;
+        }
+        setInput(ft);
+      };
+      recog.onend = () => {
+        if (ft.trim()) sendMessageRef.current?.(ft.trim(), undefined, true);
+        else if (shouldRelistenRef.current) setTimeout(() => startListeningRef.current?.(), 500);
+        else setVoiceState("idle");
+      };
+      recog.onerror = () => { setVoiceState("idle"); };
+      setVoiceState("listening");
+      recog.start();
+      recognitionRef.current = recog;
+    }
   }, []); // No deps — uses refs for everything
 
   // Keep ref in sync
@@ -1050,7 +1145,7 @@ export default function Home() {
                 voiceState === "thinking" ? "bg-amber-50 border-amber-200 text-amber-600 animate-pulse" :
                 "bg-blue-50 border-blue-200 text-blue-500"
               }`}>
-                {voiceState === "listening" ? "● Listening" : voiceState === "thinking" ? "◐ Thinking" : "▶ Speaking"}
+                {voiceState === "listening" ? "● Voxtral Listening" : voiceState === "thinking" ? "◐ Thinking" : "▶ Speaking"}
               </span>
             )}
           </div>
@@ -1062,7 +1157,7 @@ export default function Home() {
           <div className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
             <VoiceOrb state={voiceState} audioLevel={audioLevel} size={100} onClick={handleOrbClick} />
             <h2 className="mt-6 text-[22px] font-semibold text-zinc-800 tracking-tight">What can I help with?</h2>
-            <p className="mt-1.5 text-[13px] text-zinc-400">21 Tools · 4 Mistral Models · ElevenLabs Voice</p>
+            <p className="mt-1.5 text-[13px] text-zinc-400">21 Tools · 4 Models · Voxtral STT · ElevenLabs TTS</p>
 
             {voiceState === "idle" && (
               <div className="mt-8 grid grid-cols-2 gap-2.5 max-w-md w-full">
@@ -1232,17 +1327,21 @@ export default function Home() {
               {isLoading && activeTools.length > 0 && (
                 <div className="space-y-1.5 ml-8">
                   {activeTools.map((t, i) => (
-                    <div key={i} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all ${
+                    <div key={i} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all duration-500 ease-out ${
                       t.status === "running"
-                        ? "bg-amber-50 border-amber-200"
-                        : "bg-emerald-50 border-emerald-200"
-                    }`}>
+                        ? "bg-amber-50 border-amber-200 shadow-sm shadow-amber-100"
+                        : "bg-emerald-50 border-emerald-200 shadow-sm shadow-emerald-100"
+                    }`} style={{
+                      animation: "slideInUp 0.3s ease-out",
+                      animationFillMode: "both",
+                      animationDelay: `${i * 80}ms`
+                    }}>
                       <span className={t.status === "running" ? "animate-spin text-sm" : "text-sm"}>
                         {t.status === "running" ? "⏳" : "✅"}
                       </span>
                       <span className="text-[13px] font-medium text-zinc-700">{toolIcons[t.tool]} {t.tool}</span>
-                      <span className="text-[11px] text-zinc-400 truncate">{typeof t.args === "string" ? t.args : JSON.stringify(t.args)}</span>
-                      {t.duration && <span className="text-[10px] text-zinc-400 font-mono ml-auto shrink-0">{t.duration}ms</span>}
+                      <span className="text-[11px] text-zinc-400 truncate max-w-[250px]">{typeof t.args === "string" ? t.args : JSON.stringify(t.args)}</span>
+                      {t.duration && <span className="text-[10px] text-emerald-500 font-mono ml-auto shrink-0">{t.duration}ms</span>}
                     </div>
                   ))}
                 </div>
@@ -1313,7 +1412,7 @@ export default function Home() {
             </div>
 
             <p className="text-[10px] text-zinc-400 text-center mt-2">
-              21 tools · 4 Mistral models · ElevenLabs TTS · 10 languages · Space to talk
+              21 tools · 4 Mistral models · Voxtral STT · ElevenLabs TTS · 10 languages · Space to talk
             </p>
           </div>
         </div>
