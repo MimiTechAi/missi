@@ -419,11 +419,11 @@ const tools = [
     type: "function" as const,
     function: {
       name: "change_voice",
-      description: "Change MISSI's speaking voice. Available voices: 'eric' (default male), 'aria' (female), 'roger' (deep male), 'sarah' (warm female), 'charlie' (british male)",
+      description: "Change MISSI's speaking voice. Available voices: 'sarah' (default warm female), 'aria' (bright female), 'rachel' (calm female), 'eric' (smooth male), 'roger' (deep male), 'charlie' (british male)",
       parameters: {
         type: "object" as const,
         properties: {
-          voice: { type: "string" as const, description: "Voice name: 'eric', 'aria', 'roger', 'sarah', 'charlie'" },
+          voice: { type: "string" as const, description: "Voice name: 'sarah', 'aria', 'rachel', 'eric', 'roger', 'charlie'" },
         },
         required: ["voice"],
       },
@@ -807,10 +807,11 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
 
     case "change_voice": {
       const voices: Record<string, { id: string; name: string }> = {
-        eric: { id: "cjVigY5qzO86Huf0OWal", name: "Eric (Default)" },
-        aria: { id: "9BWtsMINqrJLrRacOk9x", name: "Aria (Female)" },
+        sarah: { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah (Default — Warm Female)" },
+        aria: { id: "9BWtsMINqrJLrRacOk9x", name: "Aria (Bright Female)" },
+        rachel: { id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel (Calm Female)" },
+        eric: { id: "cjVigY5qzO86Huf0OWal", name: "Eric (Smooth Male)" },
         roger: { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger (Deep Male)" },
-        sarah: { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah (Warm Female)" },
         charlie: { id: "IKne3meq5aSn9XLyUdCD", name: "Charlie (British Male)" },
       };
       const v = voices[args.voice.toLowerCase()];
@@ -1072,7 +1073,7 @@ Available tools:
 - get_crypto_price: Live crypto prices (bitcoin, ethereum, solana, etc.)
 - wikipedia: Wikipedia knowledge in any language
 - get_location: User's GPS location (requires browser permission)
-- change_voice: Switch MISSI's voice (eric, aria, roger, sarah, charlie)
+- change_voice: Switch MISSI's voice (sarah, aria, rachel, eric, roger, charlie) — default is Sarah
 - news_headlines: Latest news headlines by topic/country
 - unit_convert: Convert between any units (temperature, length, weight, volume, speed, data)
 - define_word: Dictionary definitions, synonyms, examples

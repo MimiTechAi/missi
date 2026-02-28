@@ -14,6 +14,13 @@ type ToolResult = {
   duration: number;
 };
 
+type Source = {
+  url: string;
+  title: string;
+  favicon: string;
+  domain: string;
+};
+
 type Document = {
   title: string;
   content: string;
@@ -33,6 +40,7 @@ type Message = {
   model?: ModelRoute;
   plan?: string[];
   documents?: Document[];
+  sources?: Source[];
   image?: string;
   timestamp?: number;
   displayedContent?: string;
@@ -99,6 +107,88 @@ function useTypingEffect(text: string, speed: number = 18, enabled: boolean = tr
 }
 
 // ============================================================
+// Source Extraction — Perplexity-style source cards
+// ============================================================
+function extractSources(toolResults: ToolResult[]): Source[] {
+  const sources: Source[] = [];
+  const seen = new Set<string>();
+
+  for (const t of toolResults) {
+    if (t.tool === "web_search" && t.result) {
+      // Extract URLs from search results
+      const urlMatches = t.result.match(/🔗\s*(https?:\/\/[^\s]+)/g);
+      if (urlMatches) {
+        for (const match of urlMatches) {
+          const url = match.replace(/🔗\s*/, "").trim();
+          try {
+            const parsed = new URL(url);
+            const domain = parsed.hostname.replace("www.", "");
+            if (!seen.has(domain)) {
+              seen.add(domain);
+              // Extract title from the line above the URL
+              const lines = t.result.split("\n");
+              let title = domain;
+              for (let i = 0; i < lines.length; i++) {
+                if (lines[i].includes(url) && i > 0) {
+                  title = lines[i - 1]?.replace(/^[•\-\s]+/, "").trim() || domain;
+                  // Also check 2 lines up for the actual title
+                  if (title.length < 5 && i > 1) {
+                    title = lines[i - 2]?.replace(/^[•\-\s]+/, "").trim() || domain;
+                  }
+                  break;
+                }
+              }
+              sources.push({
+                url,
+                title: title.slice(0, 60),
+                favicon: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
+                domain,
+              });
+            }
+          } catch {}
+        }
+      }
+    }
+
+    if (t.tool === "read_webpage" && t.args.url) {
+      const url = t.args.url;
+      try {
+        const parsed = new URL(url);
+        const domain = parsed.hostname.replace("www.", "");
+        if (!seen.has(domain)) {
+          seen.add(domain);
+          sources.push({
+            url,
+            title: domain.charAt(0).toUpperCase() + domain.slice(1),
+            favicon: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
+            domain,
+          });
+        }
+      } catch {}
+    }
+
+    if (t.tool === "wikipedia" && t.result) {
+      const wikiUrlMatch = t.result.match(/Source:\s*(https:\/\/[^\s]+wikipedia[^\s]+)/);
+      if (wikiUrlMatch) {
+        const url = wikiUrlMatch[1];
+        if (!seen.has("wikipedia")) {
+          seen.add("wikipedia");
+          const titleMatch = t.result.match(/📖\s*(.+)/);
+          sources.push({
+            url,
+            title: titleMatch?.[1]?.slice(0, 50) || "Wikipedia",
+            favicon: "https://www.google.com/s2/favicons?domain=wikipedia.org&sz=32",
+            domain: "wikipedia.org",
+          });
+        }
+      }
+    }
+  }
+
+  return sources.slice(0, 8); // Max 8 sources
+}
+
+// ============================================================
 // Main Component
 // ============================================================
 export default function Home() {
@@ -116,6 +206,8 @@ export default function Home() {
   const [spokenSoFar, setSpokenSoFar] = useState(""); // Syncs with TTS playback
   const [thinkingStatus, setThinkingStatus] = useState(""); // Live tool progress
   const [activeTools, setActiveTools] = useState<{ tool: string; args: Record<string, string>; status: "running" | "done"; result?: string; duration?: number }[]>([]); // Live streaming tools
+  const [browsingActivities, setBrowsingActivities] = useState<{ url: string; domain: string; status: "loading" | "reading" | "done"; content?: string }[]>([]);
+  const [showBrowsingPanel, setShowBrowsingPanel] = useState(true);
   // Permission-gated services
   const [permissions, setPermissions] = useState<{
     gmailToken: string | null;
@@ -433,6 +525,7 @@ export default function Home() {
 
       // Live tool cards state
       setActiveTools([]);
+      setBrowsingActivities([]);
 
       while (true) {
         const { done, value } = await reader.read();
@@ -470,6 +563,18 @@ export default function Home() {
               const toolEntry = { tool: eventData.tool, args: eventData.args, status: "running" as const };
               activeTools.push(toolEntry);
               setActiveTools([...activeTools]);
+              // Track browsing activities for live panel
+              if (eventData.tool === "read_webpage" && eventData.args.url) {
+                try {
+                  const domain = new URL(eventData.args.url).hostname.replace("www.", "");
+                  setBrowsingActivities(prev => [...prev, { url: eventData.args.url, domain, status: "loading" }]);
+                  setShowBrowsingPanel(true);
+                } catch {}
+              }
+              if (eventData.tool === "web_search") {
+                setBrowsingActivities(prev => [...prev, { url: `search://${eventData.args.query}`, domain: "DuckDuckGo", status: "loading" }]);
+                setShowBrowsingPanel(true);
+              }
               // Live thinking status
               const toolStatusIcons: Record<string, string> = {
                 web_search: "🔍 Searching the web", get_weather: "🌤️ Checking weather",
@@ -496,6 +601,17 @@ export default function Home() {
               if (idx >= 0) {
                 activeTools[idx] = { ...activeTools[idx], status: "done", result: eventData.result, duration: eventData.duration };
                 setActiveTools([...activeTools]);
+              }
+              // Update browsing panel
+              if (eventData.tool === "read_webpage" || eventData.tool === "web_search") {
+                setBrowsingActivities(prev => {
+                  const updated = [...prev];
+                  const lastLoading = updated.findLastIndex(b => b.status === "loading");
+                  if (lastLoading >= 0) {
+                    updated[lastLoading] = { ...updated[lastLoading], status: "done", content: eventData.result?.slice(0, 200) };
+                  }
+                  return updated;
+                });
               }
               streamedToolResults.push(eventData);
               // Handle special tool results
@@ -549,6 +665,7 @@ export default function Home() {
         setVoiceState("idle");
       } else {
         const responseTime = Date.now() - apiStart;
+        const sources = extractSources(streamedToolResults);
         const newMsg: Message = {
           role: "assistant",
           content: streamedContent,
@@ -557,11 +674,13 @@ export default function Home() {
           model: streamedModel || undefined,
           plan: streamedPlan || undefined,
           documents: streamedDocuments,
+          sources: sources.length > 0 ? sources : undefined,
           timestamp: Date.now(),
           responseTime,
         };
 
         setActiveTools([]);
+        setBrowsingActivities([]);
         let msgIndex = 0;
         setMessages(prev => {
           msgIndex = prev.length;
@@ -1017,7 +1136,7 @@ export default function Home() {
   }, [playSound]);
 
   // ── Voice Change Handler ──
-  const [currentVoiceId, setCurrentVoiceId] = useState("cjVigY5qzO86Huf0OWal"); // Eric default
+  const [currentVoiceId, setCurrentVoiceId] = useState("EXAVITQu4vr4xnSDxMaL"); // Sarah (warm female) — MISSI is feminine
   const currentVoiceIdRef = useRef(currentVoiceId);
   useEffect(() => { currentVoiceIdRef.current = currentVoiceId; }, [currentVoiceId]);
 
@@ -1347,6 +1466,28 @@ export default function Home() {
                           </button>
                         )}
 
+                        {/* ── Sources — Perplexity-style ── */}
+                        {msg.sources && msg.sources.length > 0 && (
+                          <div className="mt-4">
+                            <p className="text-[11px] text-zinc-400 font-semibold uppercase tracking-wider mb-2">Sources</p>
+                            <div className="flex flex-wrap gap-2">
+                              {msg.sources.map((src, j) => (
+                                <a key={j} href={src.url} target="_blank" rel="noopener noreferrer"
+                                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 hover:border-zinc-300 transition-all group max-w-[240px]">
+                                  <img src={src.favicon} alt="" className="w-4 h-4 rounded-sm flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                  <div className="min-w-0">
+                                    <p className="text-[12px] text-zinc-700 group-hover:text-zinc-900 truncate font-medium leading-tight">{src.title}</p>
+                                    <p className="text-[10px] text-zinc-400 truncate">{src.domain}</p>
+                                  </div>
+                                  <span className="text-zinc-300 group-hover:text-zinc-400 flex-shrink-0 ml-1">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                  </span>
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Action buttons — like ChatGPT (copy, etc.) */}
                         <div className="mt-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
@@ -1360,6 +1501,53 @@ export default function Home() {
                   )}
                 </div>
               ))}
+
+              {/* ── Live Browsing Panel — floating mini-window ── */}
+              {isLoading && browsingActivities.length > 0 && showBrowsingPanel && (
+                <div className="ml-8 mb-3 bg-white border border-zinc-200 rounded-xl shadow-lg overflow-hidden max-w-[420px] animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-3 py-2 bg-zinc-50 border-b border-zinc-100">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                      <span className="text-[11px] font-semibold text-zinc-600">Live Browsing</span>
+                      <span className="text-[10px] text-zinc-400">{browsingActivities.filter(b => b.status === "done").length}/{browsingActivities.length} pages</span>
+                    </div>
+                    <button onClick={() => setShowBrowsingPanel(false)}
+                      className="w-5 h-5 rounded flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                  {/* Activity list */}
+                  <div className="max-h-[200px] overflow-y-auto">
+                    {browsingActivities.map((activity, i) => (
+                      <div key={i} className={`flex items-start gap-2.5 px-3 py-2 border-b border-zinc-50 last:border-0 transition-all duration-300 ${
+                        activity.status === "loading" ? "bg-amber-50/50" : "bg-white"
+                      }`}>
+                        <div className="flex-shrink-0 mt-0.5">
+                          {activity.status === "loading" ? (
+                            <div className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                          ) : activity.status === "done" ? (
+                            <span className="text-emerald-500 text-[13px]">✓</span>
+                          ) : (
+                            <span className="text-amber-500 text-[13px]">◐</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[12px] font-medium text-zinc-700 truncate">
+                            {activity.domain === "DuckDuckGo" ? `🔍 ${activity.url.replace("search://", "")}` : activity.domain}
+                          </p>
+                          {activity.url.startsWith("http") && (
+                            <p className="text-[10px] text-zinc-400 truncate">{activity.url}</p>
+                          )}
+                          {activity.content && (
+                            <p className="text-[10px] text-zinc-400 mt-0.5 line-clamp-2 leading-tight">{activity.content.slice(0, 120)}…</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Live tool activity (SSE streaming) */}
               {isLoading && activeTools.length > 0 && (

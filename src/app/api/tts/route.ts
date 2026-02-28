@@ -9,9 +9,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "ElevenLabs API key not configured" }, { status: 500 });
     }
 
-    // Eric - Smooth, Trustworthy — perfect agentic Missi voice
+    // Sarah — Warm, feminine — perfect for MISSI (name derived from Mistral = feminine)
     // ElevenLabs v2.5 handles multilingual automatically
-    const voice = voiceId || "cjVigY5qzO86Huf0OWal";
+    const voice = voiceId || "EXAVITQu4vr4xnSDxMaL";
 
     // Use multilingual model for non-English, flash for English
     const isEnglish = !language || language.startsWith("en");
