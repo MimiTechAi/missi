@@ -429,6 +429,65 @@ const tools = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "news_headlines",
+      description: "Get the latest top news headlines worldwide or by country/category. Perfect for 'what's happening today', 'latest news', 'Nachrichten', 'actualités'",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          topic: { type: "string" as const, description: "News topic or category, e.g. 'technology', 'sports', 'politics', 'business', 'science', or a specific topic like 'AI'" },
+          country: { type: "string" as const, description: "Country code: 'us', 'de', 'fr', 'gb', 'jp'. Default: international" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "unit_convert",
+      description: "Convert between units: temperature (C/F/K), length (km/miles/meters/feet), weight (kg/lbs/oz), volume (liters/gallons), speed (km/h to mph), data (MB/GB/TB), currency hints",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          value: { type: "string" as const, description: "Numeric value to convert, e.g. '100'" },
+          from: { type: "string" as const, description: "Source unit, e.g. 'celsius', 'km', 'kg', 'liters'" },
+          to: { type: "string" as const, description: "Target unit, e.g. 'fahrenheit', 'miles', 'lbs', 'gallons'" },
+        },
+        required: ["value", "from", "to"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "define_word",
+      description: "Get the definition, etymology, synonyms, and usage examples for any English word",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          word: { type: "string" as const, description: "Word to define" },
+        },
+        required: ["word"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "random_fact",
+      description: "Get a random interesting fact or trivia. Great for 'tell me something interesting', 'fun fact', 'wusstest du'",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          category: { type: "string" as const, description: "Category: 'science', 'history', 'nature', 'space', 'technology', 'random'" },
+        },
+        required: [],
+      },
+    },
+  },
 ];
 
 // ============================================================
@@ -451,22 +510,24 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
         const resultBlocks = html.match(/<div class="result results_links[\s\S]*?<\/div>\s*<\/div>/g) || [];
         const results: string[] = [];
         
-        for (const block of resultBlocks.slice(0, 5)) {
+        for (const block of resultBlocks.slice(0, 8)) {
           const titleMatch = block.match(/class="result__a"[^>]*>([\s\S]*?)<\/a>/);
           const snippetMatch = block.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/a?/);
+          const urlMatch = block.match(/href="([^"]*?)"/);
           const title = titleMatch?.[1]?.replace(/<[^>]*>/g, "").trim() || "";
           const snippet = snippetMatch?.[1]?.replace(/<[^>]*>/g, "").trim() || "";
-          if (title) results.push(`• ${title}\n  ${snippet}`);
+          const url = urlMatch?.[1] || "";
+          if (title) results.push(`• ${title}\n  ${snippet}${url ? `\n  🔗 ${url}` : ""}`);
         }
 
         if (results.length === 0) {
           // Fallback: simpler extraction
           const links = html.match(/<a rel="nofollow" class="result__a" href="[^"]*">.*?<\/a>/g);
           if (links) {
-            return links.slice(0, 5).map((r) => r.replace(/<[^>]*>/g, "")).join("\n");
+            return links.slice(0, 8).map((r) => r.replace(/<[^>]*>/g, "")).join("\n");
           }
         }
-        return results.join("\n\n") || "No results found.";
+        return `🔍 Search results for "${args.query}":\n\n${results.join("\n\n")}` || "No results found.";
       } catch {
         return "Search temporarily unavailable.";
       }
@@ -746,6 +807,105 @@ ${condition}
       return JSON.stringify({ _type: "voice_change", voiceId: v.id, voiceName: v.name });
     }
 
+    case "news_headlines": {
+      try {
+        const topic = args.topic || "latest";
+        const country = args.country || "";
+        const searchQuery = country 
+          ? `${topic} news ${country} today ${new Date().toISOString().split("T")[0]}`
+          : `${topic} news today ${new Date().toISOString().split("T")[0]}`;
+        const res = await fetch(
+          `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`,
+          { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" } }
+        );
+        const html = await res.text();
+        const blocks = html.match(/<div class="result results_links[\s\S]*?<\/div>\s*<\/div>/g) || [];
+        const headlines: string[] = [];
+        for (const block of blocks.slice(0, 8)) {
+          const titleMatch = block.match(/class="result__a"[^>]*>([\s\S]*?)<\/a>/);
+          const snippetMatch = block.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/a?/);
+          const title = titleMatch?.[1]?.replace(/<[^>]*>/g, "").trim() || "";
+          const snippet = snippetMatch?.[1]?.replace(/<[^>]*>/g, "").trim() || "";
+          if (title) headlines.push(`📰 ${title}\n   ${snippet}`);
+        }
+        return `📰 Top Headlines — ${topic}${country ? ` (${country.toUpperCase()})` : ""}:\n\n${headlines.join("\n\n")}` || "No headlines found.";
+      } catch {
+        return "News service temporarily unavailable.";
+      }
+    }
+
+    case "unit_convert": {
+      const val = parseFloat(args.value);
+      if (isNaN(val)) return `Invalid number: "${args.value}"`;
+      const from = args.from.toLowerCase();
+      const to = args.to.toLowerCase();
+
+      const conversions: Record<string, Record<string, (v: number) => number>> = {
+        celsius: { fahrenheit: v => v * 9/5 + 32, kelvin: v => v + 273.15 },
+        fahrenheit: { celsius: v => (v - 32) * 5/9, kelvin: v => (v - 32) * 5/9 + 273.15 },
+        kelvin: { celsius: v => v - 273.15, fahrenheit: v => (v - 273.15) * 9/5 + 32 },
+        km: { miles: v => v * 0.621371, meters: v => v * 1000, feet: v => v * 3280.84 },
+        miles: { km: v => v * 1.60934, meters: v => v * 1609.34, feet: v => v * 5280 },
+        meters: { km: v => v / 1000, miles: v => v / 1609.34, feet: v => v * 3.28084, inches: v => v * 39.3701 },
+        feet: { meters: v => v / 3.28084, km: v => v / 3280.84, miles: v => v / 5280, inches: v => v * 12 },
+        kg: { lbs: v => v * 2.20462, oz: v => v * 35.274, grams: v => v * 1000 },
+        lbs: { kg: v => v / 2.20462, oz: v => v * 16, grams: v => v * 453.592 },
+        liters: { gallons: v => v * 0.264172, ml: v => v * 1000, cups: v => v * 4.22675 },
+        gallons: { liters: v => v * 3.78541, ml: v => v * 3785.41, cups: v => v * 16 },
+        "km/h": { mph: v => v * 0.621371, "m/s": v => v / 3.6 },
+        mph: { "km/h": v => v * 1.60934, "m/s": v => v * 0.44704 },
+        mb: { gb: v => v / 1024, tb: v => v / (1024 * 1024), kb: v => v * 1024 },
+        gb: { mb: v => v * 1024, tb: v => v / 1024, kb: v => v * 1024 * 1024 },
+        tb: { gb: v => v * 1024, mb: v => v * 1024 * 1024 },
+      };
+
+      const converter = conversions[from]?.[to];
+      if (!converter) return `Cannot convert from "${from}" to "${to}". Supported: temperature (C/F/K), length (km/miles/m/ft), weight (kg/lbs), volume (liters/gallons), speed (km/h/mph), data (MB/GB/TB)`;
+      const result = converter(val);
+      return `🔄 ${val} ${from} = **${result.toFixed(4).replace(/\.?0+$/, "")} ${to}**`;
+    }
+
+    case "define_word": {
+      try {
+        const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(args.word)}`);
+        if (!res.ok) return `Word "${args.word}" not found in dictionary.`;
+        const data = await res.json();
+        const entry = data[0];
+        const phonetic = entry.phonetics?.find((p: { text?: string }) => p.text)?.text || "";
+        const meanings = entry.meanings?.slice(0, 3).map((m: { partOfSpeech: string; definitions: { definition: string; example?: string; synonyms?: string[] }[] }) => {
+          const defs = m.definitions.slice(0, 2);
+          return `**${m.partOfSpeech}**\n${defs.map((d: { definition: string; example?: string }, i: number) => 
+            `  ${i + 1}. ${d.definition}${d.example ? `\n     _"${d.example}"_` : ""}`
+          ).join("\n")}`;
+        }).join("\n\n");
+        const allSynonyms = entry.meanings?.flatMap((m: { definitions: { synonyms?: string[] }[] }) => 
+          m.definitions.flatMap((d: { synonyms?: string[] }) => d.synonyms || [])
+        ).slice(0, 8);
+        return `📖 **${entry.word}** ${phonetic}\n\n${meanings}${allSynonyms?.length ? `\n\n**Synonyms:** ${allSynonyms.join(", ")}` : ""}`;
+      } catch {
+        return `Could not look up "${args.word}".`;
+      }
+    }
+
+    case "random_fact": {
+      try {
+        const res = await mistral.chat.complete({
+          model: "mistral-small-latest",
+          messages: [
+            {
+              role: "system",
+              content: `Generate one fascinating, lesser-known fact about ${args.category || "any topic"}. Make it specific with a surprising number, date, or detail. Format: Start with an emoji, then the fact. Keep it to 2-3 sentences.`,
+            },
+            { role: "user", content: "Tell me a random interesting fact." },
+          ],
+          temperature: 0.9,
+        });
+        return String(res.choices?.[0]?.message?.content || "Could not generate fact.");
+      } catch {
+        return "Fact generation failed.";
+      }
+    }
+
     case "get_calendar": {
       // Calendar is a permission-gated tool
       return "Calendar not connected. Please connect your Google account first.";
@@ -857,27 +1017,31 @@ LANGUAGE:
 - The TTS will handle any language
 
 CAPABILITIES:
-You have 21 tools at your disposal. ALWAYS use the appropriate tool — NEVER answer from memory when a tool exists for the task:
+You have 25 tools at your disposal. ALWAYS use the appropriate tool — NEVER answer from memory when a tool exists for the task:
 
 MANDATORY TOOL USAGE (you MUST call the tool, do NOT answer from memory):
-- "weather" / "Wetter" / "météo" → MUST use get_weather
-- "stock" / "Aktie" / "share price" → MUST use get_stock_price  
-- "crypto" / "bitcoin" / "ethereum" → MUST use get_crypto_price
-- "time" / "Uhrzeit" / "heure" → MUST use get_time
-- "calculate" / "rechne" / "berechne" → MUST use calculate
-- "search" / "suche" / "recherche" / "news" → MUST use web_search
-- "wikipedia" / "erkläre" / "explain" / "was ist" → MUST use wikipedia
-- "translate" / "übersetze" / "traduis" → MUST use translate
-- "document" / "report" / "Dokument" / "Bericht" → MUST use create_document
+- "weather" / "Wetter" / "météo" / "tiempo" → MUST use get_weather
+- "stock" / "Aktie" / "share price" / "cours" → MUST use get_stock_price  
+- "crypto" / "bitcoin" / "ethereum" / "Krypto" → MUST use get_crypto_price
+- "time" / "Uhrzeit" / "heure" / "hora" → MUST use get_time
+- "calculate" / "rechne" / "berechne" / "calcule" → MUST use calculate
+- "search" / "suche" / "recherche" / "news" / "busca" → MUST use web_search
+- "news" / "headlines" / "Nachrichten" / "actualités" / "noticias" → MUST use news_headlines
+- "wikipedia" / "erkläre" / "explain" / "was ist" / "qu'est-ce" → MUST use wikipedia
+- "translate" / "übersetze" / "traduis" / "traduce" → MUST use translate
+- "document" / "report" / "Dokument" / "Bericht" / "rapport" → MUST use create_document
 - "code" / "Funktion" / "function" / "programmiere" → MUST use generate_code
-- "reminder" / "erinnere" / "rappelle" → MUST use set_reminder
-- "voice" / "Stimme" / "change voice" → MUST use change_voice
-- "webpage" / "read" / "URL" / "lies" → MUST use read_webpage
-- "summarize" / "zusammenfassen" / "résume" → MUST use summarize_text
+- "reminder" / "erinnere" / "rappelle" / "recuerda" → MUST use set_reminder
+- "voice" / "Stimme" / "change voice" / "voix" → MUST use change_voice
+- "webpage" / "read" / "URL" / "lies" / "lire" → MUST use read_webpage
+- "summarize" / "zusammenfassen" / "résume" / "resume" → MUST use summarize_text
 - "run code" / "execute" / "ausführen" → MUST use run_code
+- "convert" / "umrechnen" / "convertir" → MUST use unit_convert
+- "define" / "definition" / "bedeutung" / "définition" → MUST use define_word
+- "fact" / "trivia" / "wusstest du" / "tell me something" → MUST use random_fact
 
 Available tools:
-- web_search: Real-time internet search for current events, news, facts
+- web_search: Real-time internet search (8 results with URLs)
 - read_webpage: Extract content from any URL
 - get_weather: Weather + 3-day forecast for any city
 - get_time: Current time in any timezone
@@ -898,6 +1062,10 @@ Available tools:
 - wikipedia: Wikipedia knowledge in any language
 - get_location: User's GPS location (requires browser permission)
 - change_voice: Switch MISSI's voice (eric, aria, roger, sarah, charlie)
+- news_headlines: Latest news headlines by topic/country
+- unit_convert: Convert between any units (temperature, length, weight, volume, speed, data)
+- define_word: Dictionary definitions, synonyms, examples
+- random_fact: Interesting facts and trivia
 
 CRITICAL RULES:
 - For ANY research task: use web_search FIRST, then read_webpage for details, then create_document for the final output

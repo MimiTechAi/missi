@@ -1019,6 +1019,7 @@ export default function Home() {
     analyze_data: "📊", generate_code: "⌨️", set_reminder: "⏰", summarize_text: "📋",
     search_gmail: "📧", read_gmail: "📧", search_files: "📂", get_calendar: "📅",
     get_stock_price: "📈", get_crypto_price: "🪙", wikipedia: "📖", get_location: "📍", change_voice: "🎭",
+    news_headlines: "📰", unit_convert: "🔄", define_word: "📖", random_fact: "💡",
   };
 
   const modelColors: Record<string, string> = {
@@ -1157,7 +1158,7 @@ export default function Home() {
           <div className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
             <VoiceOrb state={voiceState} audioLevel={audioLevel} size={100} onClick={handleOrbClick} />
             <h2 className="mt-6 text-[22px] font-semibold text-zinc-800 tracking-tight">What can I help with?</h2>
-            <p className="mt-1.5 text-[13px] text-zinc-400">21 Tools · 4 Models · Voxtral STT · ElevenLabs TTS · Vision · Multi-Language</p>
+            <p className="mt-1.5 text-[13px] text-zinc-400">25 Tools · 4 Models · Voxtral STT · ElevenLabs TTS · Vision · Multi-Language</p>
 
             {voiceState === "idle" && (
               <div className="mt-8 grid grid-cols-2 gap-2.5 max-w-md w-full">
@@ -1412,7 +1413,7 @@ export default function Home() {
             </div>
 
             <p className="text-[10px] text-zinc-400 text-center mt-2">
-              21 tools · 4 Mistral models · Voxtral STT · ElevenLabs TTS · 10 languages · Space to talk
+              25 tools · 4 Mistral models · Voxtral STT · ElevenLabs TTS · 10 languages · Space to talk
             </p>
           </div>
         </div>
