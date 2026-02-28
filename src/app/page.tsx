@@ -177,6 +177,12 @@ export default function Home() {
         else if (voiceState === "idle" && continuousMode) startListeningRef.current?.();
         else if (voiceState === "listening") {
           recognitionRef.current?.stop();
+        } else if (voiceState === "speaking") {
+          // Barge-in: interrupt speech and start listening
+          if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+          speechSynthesis.cancel();
+          setAudioLevel(0);
+          startListeningRef.current?.();
         }
       }
       // Escape to interrupt / deactivate
@@ -476,9 +482,11 @@ export default function Home() {
                 get_calendar: "📅 Checking calendar", get_stock_price: "📈 Fetching stock price",
                 get_crypto_price: "🪙 Fetching crypto price", wikipedia: "📖 Searching Wikipedia",
                 get_location: "📍 Getting location", change_voice: "🎭 Changing voice",
+                news_headlines: "📰 Fetching headlines", unit_convert: "🔄 Converting",
+                define_word: "📖 Looking up definition", random_fact: "💡 Generating fact",
               };
-              const argPreview = Object.values(eventData.args)[0] || "";
-              setThinkingStatus(`${toolStatusIcons[eventData.tool] || eventData.tool}${argPreview ? `: "${argPreview}"` : ""}...`);
+              const argPreview = formatToolArgs(eventData.tool, eventData.args);
+              setThinkingStatus(`${toolStatusIcons[eventData.tool] || eventData.tool}${argPreview ? `: ${argPreview}` : ""}...`);
               break;
             }
 
@@ -1022,6 +1030,35 @@ export default function Home() {
     news_headlines: "📰", unit_convert: "🔄", define_word: "📖", random_fact: "💡",
   };
 
+  // Human-readable tool args display
+  const formatToolArgs = (tool: string, args: Record<string, string>) => {
+    if (typeof args === "string") return args;
+    switch (tool) {
+      case "web_search": return `"${args.query}"`;
+      case "get_weather": return args.location;
+      case "get_time": return args.timezone || "UTC";
+      case "calculate": return args.expression;
+      case "get_stock_price": return args.symbol?.toUpperCase();
+      case "get_crypto_price": return args.coin;
+      case "wikipedia": return `"${args.query}"${args.lang ? ` (${args.lang})` : ""}`;
+      case "translate": return `→ ${args.to}`;
+      case "read_webpage": return args.url?.replace(/^https?:\/\//, "").slice(0, 40);
+      case "create_document": return args.title;
+      case "generate_code": return `${args.language}: ${args.description?.slice(0, 40)}`;
+      case "news_headlines": return args.topic || "latest";
+      case "unit_convert": return `${args.value} ${args.from} → ${args.to}`;
+      case "define_word": return args.word;
+      case "run_code": return args.code?.slice(0, 40) + (args.code?.length > 40 ? "…" : "");
+      case "change_voice": return args.voice;
+      case "set_reminder": return args.message?.slice(0, 40);
+      case "summarize_text": return `${args.format || "paragraph"} (${args.max_length || "medium"})`;
+      case "search_files": return `"${args.query}"`;
+      case "search_gmail": return args.query;
+      case "random_fact": return args.category || "random";
+      default: return JSON.stringify(args).slice(0, 50);
+    }
+  };
+
   const modelColors: Record<string, string> = {
     "mistral-small-latest": "text-emerald-400",
     "mistral-large-latest": "text-violet-400",
@@ -1286,7 +1323,7 @@ export default function Home() {
                                   <div className="flex items-center gap-2">
                                     <span className="text-emerald-500 text-[13px]">✓</span>
                                     <span className="text-[13px] font-medium text-zinc-700">{toolIcons[t.tool]} {t.tool}</span>
-                                    <span className="text-[11px] text-zinc-400 truncate max-w-[180px]">{typeof t.args === "string" ? t.args : JSON.stringify(t.args)}</span>
+                                    <span className="text-[11px] text-zinc-400 truncate max-w-[180px]">{formatToolArgs(t.tool, t.args)}</span>
                                   </div>
                                   <span className="text-[10px] text-zinc-400 font-mono shrink-0 ml-2">{t.duration}ms</span>
                                 </summary>
@@ -1341,7 +1378,7 @@ export default function Home() {
                         {t.status === "running" ? "⏳" : "✅"}
                       </span>
                       <span className="text-[13px] font-medium text-zinc-700">{toolIcons[t.tool]} {t.tool}</span>
-                      <span className="text-[11px] text-zinc-400 truncate max-w-[250px]">{typeof t.args === "string" ? t.args : JSON.stringify(t.args)}</span>
+                      <span className="text-[11px] text-zinc-400 truncate max-w-[250px]">{formatToolArgs(t.tool, t.args)}</span>
                       {t.duration && <span className="text-[10px] text-emerald-500 font-mono ml-auto shrink-0">{t.duration}ms</span>}
                     </div>
                   ))}

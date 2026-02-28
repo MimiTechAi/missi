@@ -32,6 +32,9 @@ export async function POST(req: NextRequest) {
       mistralForm.append("language", language);
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
     const response = await fetch(
       "https://api.mistral.ai/v1/audio/transcriptions",
       {
@@ -40,8 +43,10 @@ export async function POST(req: NextRequest) {
           Authorization: `Bearer ${apiKey}`,
         },
         body: mistralForm,
+        signal: controller.signal,
       }
     );
+    clearTimeout(timeout);
 
     if (!response.ok) {
       const err = await response.text();
