@@ -1550,16 +1550,16 @@ export default function Home() {
       {/* ── LEFT SIDEBAR ── */}
       <aside className="hidden md:flex w-[56px] flex-shrink-0 glass-panel border-r border-zinc-200/50 flex-col items-center py-4 gap-3 z-20">
         {/* Logo */}
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-600 flex items-center justify-center text-xs font-black text-white shadow-md shadow-orange-500/25 mb-1">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-600 flex items-center justify-center text-xs font-black text-white shadow-md shadow-orange-500/25 mb-1">
           M
         </div>
 
         {/* Nav icons */}
-        <button className="sidebar-icon w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100" title="Chat" aria-label="Chat">
+        <button className="sidebar-icon w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-orange-500 hover:bg-orange-50/50" title="Chat" aria-label="Chat">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </button>
         <button onClick={handleOrbClick}
-          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 sidebar-icon ${
             voiceState !== "idle"
               ? "bg-orange-50 text-orange-500 ring-1 ring-orange-200"
               : "text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
@@ -1567,7 +1567,7 @@ export default function Home() {
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
         </button>
         <button onClick={connectFolder}
-          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 sidebar-icon ${
             permissions.folderFiles && permissions.folderFiles.length > 0
               ? "bg-emerald-50 text-emerald-500 ring-1 ring-emerald-200"
               : "text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
@@ -1584,7 +1584,7 @@ export default function Home() {
           { id: "notion", icon: "📝", label: "Notion" },
         ].map(tk => (
           <button key={tk.id} onClick={() => connectToolkit(tk.id)}
-            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors text-[13px] ${
+            className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 text-[13px] sidebar-icon ${
               composioConnections[tk.id]
                 ? "bg-emerald-50 ring-1 ring-emerald-200"
                 : connectingToolkit === tk.id
@@ -1606,7 +1606,7 @@ export default function Home() {
           ))}
         </select>
         <button onClick={() => { setMessages([]); saveMessages([]); }}
-          aria-label="Clear conversation" className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors" title="Clear (⌘K)">
+          aria-label="Clear conversation" className="w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-red-500 hover:bg-red-50/50 transition-all duration-200 sidebar-icon" title="Clear (⌘K)">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
         </button>
       </aside>
@@ -1624,7 +1624,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-1.5">
             {currentModel && (
-              <span className={`text-[11px] px-2.5 py-0.5 rounded-full bg-zinc-50 border border-zinc-200 font-medium animate-scale-in ${
+              <span className={`text-[11px] px-3 py-1 rounded-full bg-white/80 border border-zinc-200/40 font-medium animate-scale-in shadow-sm backdrop-blur-sm ${
                 currentModel.model.includes("large") ? "text-violet-600" :
                 currentModel.model.includes("codestral") ? "text-emerald-600" :
                 currentModel.model.includes("pixtral") ? "text-pink-600" :
@@ -1674,7 +1674,7 @@ export default function Home() {
             </p>
 
             {voiceState === "idle" && (
-              <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-lg w-full">
+              <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg w-full">
                 {(() => {
                   const promptsByLang: Record<string, {icon: string; text: string}[]> = {
                     "de": [
@@ -1714,7 +1714,7 @@ export default function Home() {
                   const prompts = promptsByLang[langKey] || promptsByLang["en"];
                   return prompts.map((p) => (
                     <button key={p.text} onClick={() => sendMessage(p.text)}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white hover:bg-orange-50/30 border border-zinc-200 hover:border-orange-300/60 text-left transition-all duration-200 hover:shadow-[0_2px_16px_rgba(251,146,60,0.08)] group shadow-sm">
+                      className="flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-white/70 hover:bg-white border border-zinc-200/50 hover:border-orange-300/60 text-left transition-all duration-200 hover:shadow-lg hover:shadow-orange-100/40 group shadow-sm backdrop-blur-sm">
                       <span className="text-[18px] group-hover:scale-110 transition-transform duration-200 flex-shrink-0">{p.icon}</span>
                       <span className="text-[13px] font-medium text-zinc-600 group-hover:text-zinc-900 leading-snug">{p.text}</span>
                       <svg className="ml-auto w-3.5 h-3.5 text-zinc-300 group-hover:text-orange-400 group-hover:translate-x-0.5 transition-all flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
@@ -1737,7 +1737,7 @@ export default function Home() {
                   { icon: "🎨", label: "Images" },
                   { icon: "🌐", label: "10K+ Tools" },
                 ].map((cap) => (
-                  <span key={cap.label} className="inline-flex items-center gap-1 text-[11px] text-zinc-400 bg-zinc-50 border border-zinc-100 rounded-full px-2 py-0.5">
+                  <span key={cap.label} className="inline-flex items-center gap-1 text-[11px] text-zinc-400/70 bg-white/50 border border-zinc-200/30 rounded-full px-2.5 py-0.5 backdrop-blur-sm">
                     <span className="text-[11px]">{cap.icon}</span>{cap.label}
                   </span>
                 ))}
@@ -1757,7 +1757,7 @@ export default function Home() {
                   {/* USER MESSAGE */}
                   {msg.role === "user" && (
                     <div className="flex justify-end mb-5">
-                      <div className="max-w-[85%] sm:max-w-[75%] bg-gradient-to-br from-zinc-900 to-zinc-800 text-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-sm shadow-zinc-900/10">
+                      <div className="max-w-[85%] sm:max-w-[75%] bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 text-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-lg shadow-zinc-900/15">
                         {msg.fromVoice && (
                           <div className="flex items-center gap-1.5 text-[10px] text-zinc-400/70 mb-1.5">
                             <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/></svg>
@@ -1904,7 +1904,7 @@ export default function Home() {
                             <div className="flex flex-wrap gap-2">
                               {msg.sources.map((src, j) => (
                                 <a key={j} href={src.url} target="_blank" rel="noopener noreferrer"
-                                  className="source-card flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-50 hover:bg-white border border-zinc-200 hover:border-zinc-300 group max-w-[240px]">
+                                  className="source-card flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/80 hover:bg-white border border-zinc-200/60 hover:border-orange-200 group max-w-[260px] shadow-sm hover:shadow-md transition-all duration-200">
                                   <img src={src.favicon} alt="" className="w-4 h-4 rounded-sm flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                   <div className="min-w-0">
                                     <p className="text-[12px] text-zinc-700 group-hover:text-zinc-900 truncate font-medium leading-tight">{src.title}</p>
@@ -1959,7 +1959,7 @@ export default function Home() {
                           <div className="mt-4 flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-500" style={{ animationDelay: "300ms" }}>
                             {msg.suggestions.map((suggestion, j) => (
                               <button key={j} onClick={() => sendMessage(suggestion)}
-                                className="px-3.5 py-1.5 rounded-full text-[12px] font-medium text-zinc-500 bg-white hover:bg-orange-50 border border-zinc-200/80 hover:border-orange-300/70 hover:text-orange-700 transition-all duration-200 flex items-center gap-1.5 group shadow-sm hover:shadow-none">
+                                className="px-3.5 py-1.5 rounded-full text-[12px] font-medium text-zinc-500 bg-white/80 hover:bg-orange-50 border border-zinc-200/60 hover:border-orange-300 hover:text-orange-600 transition-all duration-200 flex items-center gap-1.5 group shadow-sm hover:shadow-md hover:shadow-orange-100/50 backdrop-blur-sm">
                                 <span className="text-zinc-400 group-hover:text-orange-500 transition-colors text-[11px]">→</span>
                                 {suggestion}
                               </button>
@@ -2125,7 +2125,7 @@ export default function Home() {
               </button>
             </div>
 
-            <p className="text-[10px] text-zinc-400 text-center mt-2">
+            <p className="text-[10px] text-zinc-400/50 text-center mt-3 font-medium">
               Built for the Mistral AI Worldwide Hackathon 2026 by MiMi Tech AI · 10,000+ tools via Composio · 4 Mistral models
             </p>
           </div>

@@ -530,23 +530,37 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
           store: false,
         });
 
-        // Extract text and references from the response
+        // Extract text and references from the response (handle multiple response formats)
         const results: string[] = [];
+        const refs: string[] = [];
         const entries = searchResponse.outputs || [];
         for (const entry of entries) {
+          // Handle message.output entries
           if (entry.type === "message.output" && Array.isArray(entry.content)) {
             for (const chunk of entry.content) {
               if (chunk.type === "text" && chunk.text) {
                 results.push(chunk.text);
               } else if (chunk.type === "tool_reference" && chunk.url) {
-                results.push(`🔗 ${chunk.url} — ${chunk.title || ""}`);
+                refs.push(`🔗 [${chunk.title || chunk.url}](${chunk.url})`);
               }
             }
           }
+          // Handle direct text content
+          if (typeof entry === "object" && "text" in entry && typeof entry.text === "string") {
+            results.push(entry.text);
+          }
+        }
+        
+        // Also check for top-level response content
+        const resp = searchResponse as Record<string, unknown>;
+        if (typeof resp.content === "string" && resp.content.length > 10) {
+          results.push(resp.content);
         }
 
         if (results.length > 0) {
-          return `🔍 Search results for "${args.query}":\n\n${results.join("\n")}`;
+          const combined = results.join("\n");
+          const refsStr = refs.length > 0 ? `\n\n**Sources:**\n${refs.join("\n")}` : "";
+          return `🔍 Search results for "${args.query}":\n\n${combined}${refsStr}`;
         }
         return "No results found.";
       } catch {
@@ -646,15 +660,53 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
     case "run_code": {
       try {
         // Security: block dangerous APIs in sandboxed execution
-        const blocked = ["fetch(", "require(", "import(", "process.", "XMLHttp", "WebSocket"];
+        const blocked = ["fetch(", "require(", "import(", "process.", "XMLHttp", "WebSocket", "eval(", "Function("];
         for (const b of blocked) {
-          if (args.code.includes(b)) return `Security: "${b}" is not allowed in sandboxed code.`;
+          if (args.code.includes(b)) return `⚠️ Security: \`${b}\` is not allowed in sandboxed execution.`;
         }
-        const fn = new Function(`"use strict"; const fetch=undefined,require=undefined,process=undefined; ${args.code}`);
-        const result = fn();
-        return `Output: ${JSON.stringify(result, null, 2) ?? "undefined"}`;
+        
+        // Detect language
+        const lang = (args.language || "").toLowerCase();
+        const isPython = lang === "python" || lang === "py" || 
+          args.code.includes("print(") || args.code.includes("def ") || 
+          args.code.includes("import ") || args.code.includes("for ") && args.code.includes("in range");
+        
+        if (isPython) {
+          // Translate common Python patterns to JavaScript for sandboxed execution
+          let jsCode = args.code
+            .replace(/^print\((.*)\)$/gm, "console.log($1)")
+            .replace(/^(\s+)print\((.*)\)$/gm, "$1console.log($2)")
+            .replace(/def (\w+)\((.*?)\):/g, "function $1($2) {")
+            .replace(/elif /g, "} else if (")
+            .replace(/else:/g, "} else {")
+            .replace(/if (.+):/g, "if ($1) {")
+            .replace(/for (\w+) in range\((\d+)\):/g, "for (let $1 = 0; $1 < $2; $1++) {")
+            .replace(/for (\w+) in range\((\d+),\s*(\d+)\):/g, "for (let $1 = $2; $1 < $3; $1++) {")
+            .replace(/True/g, "true")
+            .replace(/False/g, "false")
+            .replace(/None/g, "null")
+            .replace(/len\(/g, "((x) => x.length)(")
+            .replace(/#(.*)$/gm, "// $1")
+            .replace(/sum\(range\((\d+),\s*(\d+)\)\)/g, "Array.from({length: $2 - $1}, (_, i) => i + $1).reduce((a, b) => a + b, 0)");
+          
+          // Capture console.log output
+          const logs: string[] = [];
+          const mockConsole = { log: (...a: unknown[]) => logs.push(a.map(String).join(" ")) };
+          const fn = new Function("console", `"use strict"; ${jsCode}`);
+          const result = fn(mockConsole);
+          const output = logs.length > 0 ? logs.join("\n") : (result !== undefined ? String(result) : "Done (no output)");
+          return `\`\`\`\n${output}\n\`\`\``;
+        }
+        
+        // JavaScript execution with console.log capture
+        const logs: string[] = [];
+        const mockConsole = { log: (...a: unknown[]) => logs.push(a.map(String).join(" ")) };
+        const fn = new Function("console", `"use strict"; const fetch=undefined,require=undefined,process=undefined; ${args.code}`);
+        const result = fn(mockConsole);
+        const output = logs.length > 0 ? logs.join("\n") : (result !== undefined ? JSON.stringify(result, null, 2) : "Done (no output)");
+        return `\`\`\`\n${output}\n\`\`\``;
       } catch (e) {
-        return `Execution error: ${e}`;
+        return `❌ Execution error: ${e instanceof Error ? e.message : String(e)}`;
       }
     }
 
