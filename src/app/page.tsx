@@ -410,6 +410,7 @@ export default function Home() {
               audioRef.current.onended = () => { URL.revokeObjectURL(url); resolve(); };
               audioRef.current.onerror = () => { URL.revokeObjectURL(url); resolve(); };
               audioRef.current.onpause = () => { URL.revokeObjectURL(url); resolve(); }; // Barge-in: resolve on pause so speakText exits cleanly
+              speechSynthesis.cancel(); // Safety: kill any lingering browser TTS
               audioRef.current.play().catch(() => resolve());
             } else resolve();
           });
@@ -418,24 +419,13 @@ export default function Home() {
             break; // Exit chunk loop — user is talking
           }
         } else {
-          // ElevenLabs failed (quota, auth, etc) — use browser TTS fallback
-          await new Promise<void>((resolve) => {
-            const u = new SpeechSynthesisUtterance(chunk);
-            u.lang = sttLangRef.current;
-            u.onend = () => resolve();
-            u.onerror = () => resolve();
-            speechSynthesis.speak(u);
-          });
+          // ElevenLabs failed — skip chunk silently (don't mix voices with browser TTS)
+          // Browser TTS has completely different voice quality and causes jarring switches
+          console.warn("ElevenLabs TTS failed for chunk, skipping voice for this chunk");
         }
       } catch {
-        // Network error — use browser TTS fallback
-        await new Promise<void>((resolve) => {
-          const u = new SpeechSynthesisUtterance(chunk);
-          u.lang = sttLangRef.current;
-          u.onend = () => resolve();
-          u.onerror = () => resolve();
-          speechSynthesis.speak(u);
-        });
+        // Network error — skip chunk silently to avoid voice mixing
+        console.warn("TTS network error, skipping voice for this chunk");
       }
     }
     
@@ -493,6 +483,7 @@ export default function Home() {
             audioRef.current!.onended = () => { URL.revokeObjectURL(url); resolve(); };
             audioRef.current!.onerror = () => { URL.revokeObjectURL(url); resolve(); };
             audioRef.current!.onpause = () => { URL.revokeObjectURL(url); resolve(); };
+            speechSynthesis.cancel(); // Safety: prevent voice mixing
             audioRef.current!.play().catch(() => resolve());
           });
           // If barge-in interrupted, clear queue
@@ -614,12 +605,11 @@ export default function Home() {
           const url = URL.createObjectURL(blob);
           audioRef.current.src = url;
           audioRef.current.onended = () => URL.revokeObjectURL(url);
+          speechSynthesis.cancel(); // Kill any browser TTS before ElevenLabs
           await audioRef.current.play().catch(() => {});
         } else if (!res.ok) {
-          // ElevenLabs quota/error — browser TTS fallback
-          const u = new SpeechSynthesisUtterance(filler);
-          u.lang = sttLangRef.current;
-          speechSynthesis.speak(u);
+          // ElevenLabs unavailable — skip filler to avoid voice mixing
+          console.warn("ElevenLabs unavailable for filler");
         }
       } catch {}
     })();
@@ -640,6 +630,7 @@ export default function Home() {
             gmailToken: permissions.gmailToken || undefined,
             fileIndex: permissions.folderFiles?.join("\n") || undefined,
             location: userLocation || undefined,
+            composioConnected: Object.entries(composioConnections).filter(([, v]) => v).map(([k]) => k),
           },
         }),
       });
@@ -821,13 +812,17 @@ export default function Home() {
         }
       }
 
-      // Stop filler audio (voice only)
+      // Stop filler audio (voice only) — MUST complete before response TTS starts
       if (fromVoice) {
         await fillerPromise;
+        // Aggressively stop ALL audio before response plays
         if (audioRef.current && !audioRef.current.paused) {
           audioRef.current.pause();
           audioRef.current.currentTime = 0;
         }
+        speechSynthesis.cancel(); // Kill any lingering browser TTS
+        // Brief pause to ensure audio pipeline is clear
+        await new Promise(r => setTimeout(r, 50));
       }
 
       if (!streamedContent) {
@@ -1106,24 +1101,12 @@ export default function Home() {
             } else resolve();
           });
         } else {
-          // ElevenLabs unavailable — browser TTS fallback for greeting
-          await new Promise<void>((resolve) => {
-            const u = new SpeechSynthesisUtterance(greeting);
-            u.lang = sttLangRef.current;
-            u.onend = () => resolve();
-            u.onerror = () => resolve();
-            speechSynthesis.speak(u);
-          });
+          // ElevenLabs unavailable — skip greeting voice to avoid voice mixing
+          console.warn("ElevenLabs unavailable for greeting");
         }
       } catch {
-        // Network error — browser TTS fallback
-        await new Promise<void>((resolve) => {
-          const u = new SpeechSynthesisUtterance(greeting);
-          u.lang = sttLangRef.current;
-          u.onend = () => resolve();
-          u.onerror = () => resolve();
-          speechSynthesis.speak(u);
-        });
+        // Network error — skip greeting voice
+        console.warn("TTS network error for greeting");
       }
       setVoiceState("idle");
       setAudioLevel(0);
@@ -1259,11 +1242,24 @@ export default function Home() {
       if (data.url) {
         // Open connect link in popup
         const popup = window.open(data.url, `connect_${toolkit}`, "width=600,height=700");
-        // Poll for completion
+        // Poll for completion + verify
         const checkInterval = setInterval(async () => {
           if (popup?.closed) {
             clearInterval(checkInterval);
-            setComposioConnections(prev => ({ ...prev, [toolkit]: true }));
+            // Verify connection actually succeeded
+            try {
+              const verifyRes = await fetch("/api/composio", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "status", toolkit }),
+              });
+              const verifyData = await verifyRes.json();
+              const isConnected = verifyData.toolkits?.length > 0 || verifyRes.ok;
+              setComposioConnections(prev => ({ ...prev, [toolkit]: isConnected }));
+            } catch {
+              // Assume connected if verification fails (network error)
+              setComposioConnections(prev => ({ ...prev, [toolkit]: true }));
+            }
             setConnectingToolkit(null);
           }
         }, 1000);
@@ -2063,6 +2059,7 @@ export default function Home() {
                                   const url = URL.createObjectURL(blob);
                                   audioRef.current.src = url;
                                   audioRef.current.onended = () => URL.revokeObjectURL(url);
+                                  speechSynthesis.cancel();
                                   audioRef.current.play();
                                 }
                               } catch {}

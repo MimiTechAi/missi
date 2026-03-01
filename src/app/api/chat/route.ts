@@ -1311,6 +1311,7 @@ export async function POST(req: NextRequest) {
       gmailToken: permissions?.gmailToken || "",
       fileIndex: permissions?.fileIndex || "",
       location: permissions?.location || "",
+      composioConnected: permissions?.composioConnected || [],
       baseUrl: req.nextUrl.origin,
     };
 
@@ -1327,9 +1328,22 @@ export async function POST(req: NextRequest) {
             controller.enqueue(sseEvent("plan", plan));
           }
 
+          // 2b. Build connected-services context for the AI
+          const connectedServices = [];
+          if (permContext.gmailToken) connectedServices.push("Gmail (OAuth — user has authorized read access, use search_gmail/read_gmail tools)");
+          if (Array.isArray(permContext.composioConnected) && permContext.composioConnected.length > 0) {
+            for (const svc of permContext.composioConnected) connectedServices.push(svc + " (connected via Composio — ready to use)");
+          }
+          if (permContext.fileIndex) connectedServices.push("Local Files (folder access granted, use search_files tool)");
+          if (permContext.location) connectedServices.push("Location: " + permContext.location);
+
+          const servicesContext = connectedServices.length > 0
+            ? "\n\nCURRENTLY CONNECTED SERVICES (user has authorized these — use them directly without asking to connect):\n" + connectedServices.map(s => "- " + s).join("\n") + "\n\nIMPORTANT: When a service is listed above, USE the corresponding tool directly. Do NOT tell the user to \"connect first\" or \"click the sidebar icon\" — it is ALREADY connected and authorized."
+            : "\n\nNO EXTERNAL SERVICES CONNECTED YET. If the user asks about Gmail, Calendar, GitHub, etc., tell them to click the corresponding icon in the left sidebar to authorize access first.";
+
           // 3. Build messages
           const fullMessages: Array<Record<string, unknown>> = [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: SYSTEM_PROMPT + servicesContext },
           ];
           for (const msg of messages.slice(0, -1)) {
             fullMessages.push({ role: msg.role, content: msg.content });
