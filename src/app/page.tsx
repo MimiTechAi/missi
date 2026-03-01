@@ -1543,6 +1543,9 @@ export default function Home() {
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* ── TOP BAR ── */}
+        <div className="flex-shrink-0 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-center py-1.5 px-4 text-[12px] font-medium tracking-wide animate-fade-in">
+          👋 Grüße an Michael! Dieser Banner wurde gerade LIVE von Vex eingefügt — {new Date().toLocaleTimeString("de-DE", {hour:"2-digit", minute:"2-digit"})} Uhr · Kein Mensch hat das getippt 🤖
+        </div>
         <header className="flex-shrink-0 h-11 border-b border-zinc-100 flex items-center justify-between px-5">
           <div className="flex items-center gap-2.5">
             <span className="text-[13px] font-semibold text-zinc-800">MISSI</span>
