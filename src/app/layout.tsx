@@ -6,7 +6,7 @@ const inter = Inter({ subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
   title: "MISSI — Voice AI Operating System",
-  description: "Voice-first AI agent with intelligent multi-model routing across 4 Mistral models, 25 autonomous tools, and natural ElevenLabs voice. Built at the Mistral Worldwide Hackathon 2026 by MiMi Tech AI.",
+  description: "Voice-first AI agent with intelligent multi-model routing across 4 Mistral models, 10,000+ tools via Composio, and natural ElevenLabs voice. Built at the Mistral Worldwide Hackathon 2026 by MiMi Tech AI.",
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.svg",
@@ -19,17 +19,17 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "MISSI — Voice AI Operating System",
-    description: "Speak → MISSI plans → Executes 25 tools autonomously → Speaks back in real-time. Powered by Mistral AI's full model ecosystem.",
+    description: "Speak → MISSI plans → Executes 10,000+ tools autonomously → Speaks back in real-time. Gmail, Calendar, GitHub, Slack + more via Composio. Powered by Mistral AI.",
     type: "website",
     siteName: "MISSI by MiMi Tech AI",
   },
   twitter: {
     card: "summary",
     title: "MISSI — Voice AI Operating System",
-    description: "Voice-first AI with 4 Mistral models, 25 tools, Voxtral STT, and ElevenLabs TTS.",
+    description: "Voice-first AI with 4 Mistral models, 10,000+ tools, Voxtral STT, and ElevenLabs TTS. Built at the Mistral Worldwide Hackathon 2026.",
   },
   robots: "index, follow",
-  keywords: ["MISSI", "Mistral AI", "Voice AI", "AI Agent", "Hackathon", "Voxtral", "ElevenLabs", "MiMi Tech AI"],
+  keywords: ["MISSI", "Mistral AI", "Voice AI", "AI Agent", "Hackathon", "Voxtral", "ElevenLabs", "MiMi Tech AI", "Composio", "Gmail AI", "Voice Assistant", "AI Operating System"],
 };
 
 export const viewport: Viewport = {

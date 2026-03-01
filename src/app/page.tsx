@@ -1841,15 +1841,76 @@ export default function Home() {
                           if (t.tool === "get_stock_price" || t.tool === "get_crypto_price") {
                             const isStock = t.tool === "get_stock_price";
                             return (
-                              <div key={`viz-${j}`} className="mt-4 p-5 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-lg animate-scale-in">
+                              <div key={`viz-${j}`} className="mt-4 p-5 rounded-2xl bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 border border-zinc-700/50 shadow-xl animate-scale-in">
                                 <div className="flex items-center justify-between mb-3">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xl">{isStock ? "📈" : "🪙"}</span>
+                                  <div className="flex items-center gap-2.5">
+                                    <span className="text-2xl">{isStock ? "📈" : "🪙"}</span>
                                     <p className="text-sm font-bold text-zinc-100 uppercase tracking-wider">{isStock ? t.args.symbol : t.args.coin}</p>
                                   </div>
-                                  <span className="text-[10px] text-zinc-500 font-mono">Live Data</span>
+                                  <span className="text-[10px] text-emerald-400/80 font-mono flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                    LIVE
+                                  </span>
                                 </div>
                                 <div className="prose prose-invert prose-sm">
+                                  <ReactMarkdown>{t.result}</ReactMarkdown>
+                                </div>
+                              </div>
+                            );
+                          }
+                          if (t.tool === "news_headlines") {
+                            return (
+                              <div key={`viz-${j}`} className="mt-4 p-5 rounded-2xl bg-gradient-to-br from-violet-50 to-fuchsia-50 border border-violet-100 shadow-sm animate-scale-in">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <span className="text-xl">📰</span>
+                                  <p className="text-sm font-semibold text-violet-900">Headlines</p>
+                                </div>
+                                <div className="prose prose-sm prose-violet">
+                                  <ReactMarkdown>{t.result}</ReactMarkdown>
+                                </div>
+                              </div>
+                            );
+                          }
+                          if (t.tool === "wikipedia") {
+                            return (
+                              <div key={`viz-${j}`} className="mt-4 p-5 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100 shadow-sm animate-scale-in">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <span className="text-xl">📖</span>
+                                  <p className="text-sm font-semibold text-amber-900">Wikipedia</p>
+                                </div>
+                                <div className="prose prose-sm prose-amber">
+                                  <ReactMarkdown>{t.result}</ReactMarkdown>
+                                </div>
+                              </div>
+                            );
+                          }
+                          if (t.tool === "run_code" || t.tool === "generate_code") {
+                            return (
+                              <div key={`viz-${j}`} className="mt-4 rounded-2xl bg-zinc-900 border border-zinc-700/50 shadow-xl animate-scale-in overflow-hidden">
+                                <div className="flex items-center gap-2 px-4 py-2.5 bg-zinc-800/80 border-b border-zinc-700/50">
+                                  <div className="flex gap-1.5">
+                                    <span className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
+                                    <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
+                                    <span className="w-2.5 h-2.5 rounded-full bg-green-500/80" />
+                                  </div>
+                                  <span className="text-[11px] text-zinc-500 ml-2 font-mono">
+                                    {t.tool === "run_code" ? "Output" : t.args.language || "Code"}
+                                  </span>
+                                </div>
+                                <div className="p-4 prose prose-invert prose-sm max-h-[300px] overflow-y-auto">
+                                  <ReactMarkdown>{t.result}</ReactMarkdown>
+                                </div>
+                              </div>
+                            );
+                          }
+                          if (t.tool === "translate") {
+                            return (
+                              <div key={`viz-${j}`} className="mt-4 p-5 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 shadow-sm animate-scale-in">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <span className="text-xl">🌍</span>
+                                  <p className="text-sm font-semibold text-emerald-900">Translation</p>
+                                </div>
+                                <div className="prose prose-sm prose-emerald">
                                   <ReactMarkdown>{t.result}</ReactMarkdown>
                                 </div>
                               </div>
@@ -1858,10 +1919,10 @@ export default function Home() {
                           return null;
                         })}
 
-                        {/* Tool cards — clean, expandable (like Perplexity sources) }
+                        {/* Tool cards — clean, expandable (like Perplexity sources) */}
                         {msg.toolCalls && msg.toolCalls.length > 0 && (
                           <div className="mt-3 space-y-1.5">
-                            {msg.toolCalls.map((t, j) => (
+                            {msg.toolCalls.filter(t => !["get_weather", "get_stock_price", "get_crypto_price", "news_headlines", "wikipedia", "run_code", "generate_code", "translate"].includes(t.tool)).map((t, j) => (
                               <details key={j} className="group border border-zinc-200/60 rounded-2xl overflow-hidden glass-card tool-result-card">
                                 <summary className="flex items-center justify-between px-2.5 sm:px-3 py-2 cursor-pointer hover:bg-zinc-50 transition-colors list-none">
                                   <div className="flex items-center gap-2">

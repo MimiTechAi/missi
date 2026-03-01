@@ -21,7 +21,7 @@ Voice Input → Voxtral STT → Intelligent Model Router → Tool Execution → 
                     └─────────────────────────────────────┘
                                     ↓
                     ┌─────────────────────────────────────┐
-                    │  25 Built-in Tools                  │
+                    │  25 Built-in Tools + Live Composio                  │
                     │  + 10,000+ via Composio             │
                     │  (Gmail, Calendar, GitHub, Slack...) │
                     └─────────────────────────────────────┘
@@ -40,7 +40,7 @@ Every query is automatically routed to the optimal Mistral model:
 - **Pixtral Large** → Vision analysis (drag & drop images)
 
 ### 3. 10,000+ Tool Integrations
-25 built-in tools (web search, weather, stocks, crypto, code execution, document creation, translation...) PLUS 10,000+ external integrations via Composio — Gmail, Google Calendar, GitHub, Slack, Notion, and more. One-click OAuth connection.
+25 built-in tools (web search, weather, stocks, crypto, code execution, document creation, translation...) PLUS 10,000+ external integrations via Composio — all fully functional with live OAuth connections — Gmail, Google Calendar, GitHub, Slack, Notion, and more. One-click OAuth connection.
 
 ### 4. Multi-Language Native
 Speaks and understands 10 languages natively. Automatic language detection — speak German, get German answers with German voice. Powered by Voxtral STT + ElevenLabs multilingual TTS.
