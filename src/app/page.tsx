@@ -262,9 +262,6 @@ export default function Home() {
   const ttsPlayingRef = useRef(false);
   const ttsBufferRef = useRef("");
 
-  // Typing animation for latest assistant message (orb view)
-  const typedContent = useTypingEffect(latestContent, 12, latestContent.length > 0);
-
   // Load messages on mount + register service worker
   useEffect(() => {
     setMessages(loadMessages());
@@ -522,7 +519,7 @@ export default function Home() {
     if (!newText) return;
 
     // Look for sentence boundaries (period, !, ?, or newline after content)
-    const sentenceEnd = newText.match(/[.!?]\s|[.!?]$|\n\n|\n-|\n\*/);
+    const sentenceEnd = newText.match(/[.!?]\s|[.!?]$|\n\n|\n-\s|\n\*\s|\n\d+\.\s|:\n/);
     if (sentenceEnd && sentenceEnd.index !== undefined) {
       const endIdx = sentenceEnd.index + sentenceEnd[0].length;
       const rawSentence = newText.slice(0, endIdx).trim();
@@ -576,7 +573,7 @@ export default function Home() {
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
-    setVoiceState("thinking");
+    if (fromVoice) setVoiceState("thinking");
     setShowChat(true);
     setCurrentModel(null);
     setCurrentPlan(null);
@@ -587,7 +584,9 @@ export default function Home() {
     ttsPlayingRef.current = false;
     ttsBufferRef.current = "";
 
-    // Filler audio — speak a brief acknowledgment while LLM is thinking
+    // Filler audio — speak a brief acknowledgment while LLM is thinking (VOICE ONLY)
+    let fillerPromise: Promise<void> = Promise.resolve();
+    if (fromVoice) {
     const fillers: Record<string, string[]> = {
       "de": ["Moment...", "Einen Augenblick...", "Lass mich nachsehen..."],
       "fr": ["Un instant...", "Laissez-moi vérifier..."],
@@ -599,7 +598,7 @@ export default function Home() {
     const filler = fillerList[Math.floor(Math.random() * fillerList.length)];
     
     // Fire filler TTS (don't await — let it play while API call runs)
-    const fillerPromise = (async () => {
+    fillerPromise = (async () => {
       try {
         const res = await fetch("/api/tts", {
           method: "POST",
@@ -620,6 +619,7 @@ export default function Home() {
         }
       } catch {}
     })();
+    }
 
     try {
       const chatMessages = [...messages, userMessage].map((m) => ({ role: m.role, content: m.content }));
@@ -769,8 +769,8 @@ export default function Home() {
               const chunk = String(eventData);
               streamedContent += chunk;
               setLatestContent(streamedContent);
-              // Feed into streaming TTS pipeline — speaks sentences as they arrive
-              feedStreamingTts(streamedContent);
+              // Feed into streaming TTS pipeline — voice only
+              if (fromVoice) feedStreamingTts(streamedContent);
               // Also show streaming text in the messages area as a live preview
               setMessages(prev => {
                 const last = prev[prev.length - 1];
@@ -817,11 +817,13 @@ export default function Home() {
         }
       }
 
-      // Stop filler audio
-      await fillerPromise;
-      if (audioRef.current && !audioRef.current.paused) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
+      // Stop filler audio (voice only)
+      if (fromVoice) {
+        await fillerPromise;
+        if (audioRef.current && !audioRef.current.paused) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        }
       }
 
       if (!streamedContent) {
@@ -862,11 +864,14 @@ export default function Home() {
         });
         setIsLoading(false);
 
-        // Flush any remaining text that didn't form a full sentence yet
-        flushStreamingTts(streamedContent);
-        // If no streaming TTS started (e.g. barge-in, non-voice mode), fall back to speakText
-        if (!ttsPlayingRef.current && !ttsQueueRef.current.length) {
-          await speakText(streamedContent, msgIndex);
+        // Only speak response if original message was voice input
+        if (fromVoice) {
+          flushStreamingTts(streamedContent);
+          if (!ttsPlayingRef.current && !ttsQueueRef.current.length) {
+            await speakText(streamedContent, msgIndex);
+          }
+        } else {
+          setVoiceState("idle");
         }
       }
       setActiveTools([]);
@@ -1174,6 +1179,8 @@ export default function Home() {
   const clearConversation = () => {
     setMessages([]); localStorage.removeItem(STORAGE_KEY);
     setShowChat(false); setCurrentModel(null); setCurrentPlan(null); setLatestContent("");
+    setConversationId(null); setActiveTools([]); setBrowsingActivities([]);
+    ttsQueueRef.current = []; ttsBufferRef.current = "";
   };
 
   // ── Permission: Connect Folder (File System Access API) ──
@@ -1373,7 +1380,7 @@ export default function Home() {
     wakeRecog.onresult = (event: { results: { transcript: string }[][] }) => {
       for (let i = 0; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript.toLowerCase();
-        if (transcript.includes("hey missi") || transcript.includes("missi") || transcript.includes("hey missy") || transcript.includes("missi")) {
+        if (transcript.includes("hey missi") || transcript.includes("hey missy") || transcript.includes("hey miss") || /\bmissi\b/.test(transcript)) {
           wakeRecog.stop();
           playSound("activate");
           // Call activate() which speaks greeting + starts listening
@@ -1554,7 +1561,7 @@ export default function Home() {
           <div className="flex items-center gap-2.5">
             <span className="text-[13px] font-semibold text-zinc-800">MISSI</span>
             <span className="text-[11px] text-zinc-400 font-medium">
-              "4 Mistral Models · Voxtral STT · ElevenLabs TTS · 25 Tools"
+              4 Mistral Models · Voxtral STT · ElevenLabs TTS · 25 Tools
             </span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -1597,7 +1604,7 @@ export default function Home() {
             <div className="scale-110 sm:scale-100 transition-transform"><VoiceOrb state={voiceState} audioLevel={audioLevel} size={100} onClick={handleOrbClick} /></div>
             <h2 className="mt-5 sm:mt-6 text-[20px] sm:text-[22px] font-semibold text-zinc-800 tracking-tight">What can I help with?</h2>
             <p className="mt-1.5 text-[13px] text-zinc-400">
-              "Voice-first AI operating system powered by Mistral"
+              Voice-first AI operating system powered by Mistral
             </p>
             <p className="mt-0.5 text-[11px] text-zinc-300">25 Tools · 4 Models · Voxtral · ElevenLabs · Vision · 10 Languages</p>
 

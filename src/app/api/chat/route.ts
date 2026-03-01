@@ -1109,6 +1109,8 @@ CRITICAL RULES:
 // ============================================================
 // MAIN API HANDLER — Server-Sent Events (SSE) Streaming
 // ============================================================
+export const maxDuration = 60; // Allow up to 60s for complex multi-tool queries
+
 export async function POST(req: NextRequest) {
   const encoder = new TextEncoder();
 
@@ -1206,11 +1208,14 @@ export async function POST(req: NextRequest) {
                     const chunk = String(delta.content);
                     fullContent += chunk;
                     controller.enqueue(sseEvent("content_delta", chunk));
-                    // Adaptive streaming pace — fast start, smooth flow
+                    // Adaptive streaming pace — fast start, smooth middle, speed up for long responses
                     const tokenCount = fullContent.length;
-                    const baseDelay = tokenCount < 80 ? 12 : tokenCount < 300 ? 22 : 16;
-                    const jitter = Math.random() * 6 - 3; // ±3ms natural feel
-                    await new Promise(r => setTimeout(r, Math.max(8, baseDelay + jitter)));
+                    const baseDelay = tokenCount < 50 ? 10 : tokenCount < 200 ? 20 : tokenCount < 500 ? 16 : 12;
+                    const jitter = Math.random() * 6 - 3;
+                    // Pause at punctuation for natural reading rhythm
+                    const lastChar = chunk[chunk.length - 1];
+                    const punctPause = lastChar === '.' || lastChar === '!' || lastChar === '?' ? 40 : lastChar === ',' || lastChar === ':' ? 20 : 0;
+                    await new Promise(r => setTimeout(r, Math.max(6, baseDelay + jitter + punctPause)));
                   }
                 }
                 return fullContent;
@@ -1233,7 +1238,7 @@ export async function POST(req: NextRequest) {
           let assistantMessage = response!.choices?.[0]?.message;
 
           if (!assistantMessage || (!assistantMessage.content && (!assistantMessage.toolCalls || assistantMessage.toolCalls.length === 0))) {
-            controller.enqueue(sseEvent("content", "I'm ready! Ask me anything — I can search the web, analyze data, write code, check weather, stocks, and much more. Or just say \"Hey MISSI\" to talk."));
+            controller.enqueue(sseEvent("content_delta", "I'm ready! Ask me anything — I can search the web, analyze data, write code, check weather, stocks, and much more. Just ask or say \"Hey MISSI\" to talk. 🎤"));
             controller.enqueue(sseEvent("done", { toolResults: [], documents: [], usage: { totalRounds: 0, toolCalls: 0 } }));
             controller.close();
             return;
@@ -1256,19 +1261,26 @@ export async function POST(req: NextRequest) {
             // Announce all tools starting (shows parallel execution in UI)
             for (const call of assistantMessage.toolCalls) {
               const fn = call.function;
-              const args = JSON.parse(fn.arguments as string);
-              controller.enqueue(sseEvent("tool_start", { tool: fn.name, args }));
+              let startArgs: Record<string, string> = {};
+              try { startArgs = JSON.parse(fn.arguments as string); } catch { startArgs = {}; }
+              controller.enqueue(sseEvent("tool_start", { tool: fn.name, args: startArgs }));
             }
 
             // Execute ALL tools in parallel (like a multi-agent system)
             const permissionTools = ["search_gmail", "read_gmail", "search_files", "get_calendar", "get_location"];
             const toolPromises = assistantMessage.toolCalls.map(async (call) => {
               const fn = call.function;
-              const args = JSON.parse(fn.arguments as string);
+              let args: Record<string, string> = {};
+              try { args = JSON.parse(fn.arguments as string); } catch { args = { raw: String(fn.arguments) }; }
               const start = Date.now();
-              const result = permissionTools.includes(fn.name)
-                ? await executePermissionTool(fn.name, args, permContext)
-                : await executeTool(fn.name, args);
+              // Execute with 30s timeout to prevent hanging
+              const toolPromise = permissionTools.includes(fn.name)
+                ? executePermissionTool(fn.name, args, permContext)
+                : executeTool(fn.name, args);
+              const result = await Promise.race([
+                toolPromise,
+                new Promise<string>((_, reject) => setTimeout(() => reject(new Error("Tool timeout")), 30000))
+              ]).catch(e => `Tool execution failed: ${e instanceof Error ? e.message : "timeout"}`);
               const duration = Date.now() - start;
 
               // Stream result as soon as THIS tool finishes
