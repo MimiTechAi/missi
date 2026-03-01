@@ -1,8 +1,10 @@
 "use client";
 
+import ErrorBoundary from "@/components/ErrorBoundary";
+import dynamic from "next/dynamic";
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import VoiceOrb from "@/components/VoiceOrb";
-import ReactMarkdown from "react-markdown";
+const ReactMarkdown = dynamic(() => import("react-markdown"), { ssr: false, loading: () => <div className="skeleton-shimmer h-4 w-3/4 rounded"></div> });
 
 // ============================================================
 // Types
@@ -1467,6 +1469,7 @@ export default function Home() {
 
 
   return (
+    <ErrorBoundary>
     <div
       className="h-screen bg-white text-zinc-900 flex overflow-hidden"
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -1492,7 +1495,7 @@ export default function Home() {
         </div>
 
         {/* Nav icons */}
-        <button className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors" title="Chat">
+        <button className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors" title="Chat" aria-label="Chat">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </button>
         <button onClick={handleOrbClick}
@@ -1584,7 +1587,8 @@ export default function Home() {
           <div className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
             <VoiceOrb state={voiceState} audioLevel={audioLevel} size={100} onClick={handleOrbClick} />
             <h2 className="mt-6 text-[22px] font-semibold text-zinc-800 tracking-tight">What can I help with?</h2>
-            <p className="mt-1.5 text-[13px] text-zinc-400">25 Tools · 4 Models · Voxtral STT · ElevenLabs TTS · Vision · Multi-Language</p>
+            <p className="mt-1.5 text-[13px] text-zinc-400">Voice-first AI operating system powered by Mistral</p>
+            <p className="mt-0.5 text-[11px] text-zinc-300">25 Tools · 4 Models · Voxtral · ElevenLabs · Vision · 10 Languages</p>
 
             {voiceState === "idle" && (
               <div className="mt-8 grid grid-cols-2 gap-2.5 max-w-md w-full">
@@ -1635,7 +1639,7 @@ export default function Home() {
         ) : (
           /* CHAT: Full-width messages (like ChatGPT/Perplexity) */
           <div className="flex-1 overflow-y-auto bg-white">
-            <div className="max-w-[720px] mx-auto px-5 py-6 space-y-6">
+            <div className="max-w-[720px] mx-auto px-5 py-6 space-y-6" aria-live="polite">
               {messages.map((msg, i) => (
                 <div key={i} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                   {/* USER MESSAGE */}
@@ -1750,7 +1754,7 @@ export default function Home() {
                             <div className="flex flex-wrap gap-2">
                               {msg.sources.map((src, j) => (
                                 <a key={j} href={src.url} target="_blank" rel="noopener noreferrer"
-                                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 hover:border-zinc-300 transition-all group max-w-[240px]">
+                                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 hover:border-zinc-300 transition-all duration-150 hover:scale-[1.02] hover:shadow-sm group max-w-[240px]">
                                   <img src={src.favicon} alt="" className="w-4 h-4 rounded-sm flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                   <div className="min-w-0">
                                     <p className="text-[12px] text-zinc-700 group-hover:text-zinc-900 truncate font-medium leading-tight">{src.title}</p>
@@ -1863,22 +1867,28 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Loading indicator */}
+              {/* Loading indicator — skeleton + status */}
               {isLoading && !latestContent && (
-                <div className="flex items-center gap-3 ml-8 py-2">
-                  <div className="flex items-center gap-2">
+                <div className="ml-8 py-2 animate-fade-in" role="status" aria-label="Loading response">
+                  <div className="flex items-center gap-2.5 mb-3">
                     <div className="w-6 h-6 rounded-md bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-[9px] font-black text-white">M</div>
-                    <div className="flex gap-[3px]">
-                      <div className="w-2 h-2 bg-orange-400/60 rounded-full animate-bounce" style={{animationDelay: "0ms"}} />
-                      <div className="w-2 h-2 bg-orange-400/60 rounded-full animate-bounce" style={{animationDelay: "150ms"}} />
-                      <div className="w-2 h-2 bg-orange-400/60 rounded-full animate-bounce" style={{animationDelay: "300ms"}} />
-                    </div>
+                    <span className="text-[12px] font-semibold text-zinc-700">MISSI</span>
+                    {thinkingStatus ? (
+                      <span className="text-[12px] text-amber-500 font-medium animate-pulse">{thinkingStatus}</span>
+                    ) : currentModel ? (
+                      <span className="text-[12px] text-zinc-400">
+                        {modelIcons[currentModel.model]} {currentModel.label} is thinking…
+                      </span>
+                    ) : (
+                      <span className="text-[12px] text-zinc-400 animate-pulse">Routing to best model…</span>
+                    )}
                   </div>
-                  {thinkingStatus && <span className="text-[12px] text-amber-500 font-medium">{thinkingStatus}</span>}
-                  {currentModel && !thinkingStatus && (
-                    <span className="text-[12px] text-zinc-400">
-                      {modelIcons[currentModel.model]} {currentModel.label} is thinking…
-                    </span>
+                  {activeTools.length === 0 && (
+                    <div className="space-y-2.5 ml-8">
+                      <div className="skeleton-shimmer h-3.5 rounded-md" style={{width: "78%"}} />
+                      <div className="skeleton-shimmer h-3.5 rounded-md" style={{width: "62%", animationDelay: "0.15s"}} />
+                      <div className="skeleton-shimmer h-3.5 rounded-md" style={{width: "45%", animationDelay: "0.3s"}} />
+                    </div>
                   )}
                 </div>
               )}
@@ -1931,7 +1941,7 @@ export default function Home() {
             </div>
 
             <p className="text-[10px] text-zinc-400 text-center mt-2">
-              25 tools · 4 Mistral models · Voxtral STT · ElevenLabs TTS · 10 languages · Space to talk
+              MISSI · 25 tools · 4 Mistral models · Voxtral · ElevenLabs · 10 languages
             </p>
           </div>
         </div>
@@ -1980,5 +1990,6 @@ export default function Home() {
         </div>
       )}
     </div>
+    </ErrorBoundary>
   );
 }

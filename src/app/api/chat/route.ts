@@ -1191,8 +1191,11 @@ export async function POST(req: NextRequest) {
                     const chunk = String(delta.content);
                     fullContent += chunk;
                     controller.enqueue(sseEvent("content_delta", chunk));
-                    // Pace the output for readable streaming (~35ms between tokens)
-                    await new Promise(r => setTimeout(r, 35));
+                    // Adaptive streaming pace — fast start, smooth flow
+                    const tokenCount = fullContent.length;
+                    const baseDelay = tokenCount < 80 ? 12 : tokenCount < 300 ? 22 : 16;
+                    const jitter = Math.random() * 6 - 3; // ±3ms natural feel
+                    await new Promise(r => setTimeout(r, Math.max(8, baseDelay + jitter)));
                   }
                 }
                 return fullContent;
@@ -1310,14 +1313,19 @@ export async function POST(req: NextRequest) {
                 // Vary the speed slightly for natural feel
                 const isSpace = /^\s+$/.test(words[i]);
                 if (!isSpace && i < words.length - 1) {
-                  const delay = words[i].endsWith('.') || words[i].endsWith('!') || words[i].endsWith('?') || words[i].endsWith(':')
-                    ? 100  // Longer pause at sentence/section boundaries — like a real person
-                    : words[i].endsWith(',') || words[i].endsWith(';')
-                    ? 65   // Medium pause at commas
-                    : words[i].endsWith('\n')
-                    ? 80   // Pause at line breaks
-                    : 35;  // Normal word pace — readable, not rushed
-                  await new Promise(r => setTimeout(r, delay));
+                  const word = words[i];
+                  const isHeader = word.startsWith('#');
+                  const jitter = Math.random() * 8 - 4; // ±4ms natural variation
+                  const delay = isHeader
+                    ? 120  // Pause before headers — visual grouping
+                    : word.endsWith('.') || word.endsWith('!') || word.endsWith('?') || word.endsWith(':')
+                    ? 75   // Sentence boundaries
+                    : word.endsWith(',') || word.endsWith(';')
+                    ? 45   // Comma pause
+                    : word.endsWith('\n')
+                    ? 55   // Line break pause
+                    : 22;  // Normal word pace — fast but readable
+                  await new Promise(r => setTimeout(r, Math.max(10, delay + jitter)));
                 }
               }
             }
