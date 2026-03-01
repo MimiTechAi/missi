@@ -1,28 +1,44 @@
 import { Mistral } from "@mistralai/mistralai";
 
-// Composio SDK singleton for tool execution
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _composio: any = null;
-async function getComposioClient() {
-  if (_composio) return _composio;
-  if (!process.env.COMPOSIO_API_KEY) return null;
-  const { Composio } = await import("@composio/core");
-  _composio = new Composio({ apiKey: process.env.COMPOSIO_API_KEY });
-  return _composio;
-}
+// Composio Tool Router Session — V3 API (correct approach per docs)
+let _composioSessionId: string | null = null;
 
-async function composioExecute(toolName: string, userId: string, params: Record<string, unknown>) {
-  const composio = await getComposioClient();
-  if (!composio) throw new Error("COMPOSIO_API_KEY not set");
-  
-  console.log("[COMPOSIO] Executing:", toolName, "for user:", userId, "params:", JSON.stringify(params));
+async function getComposioSession(): Promise<string | null> {
+  if (_composioSessionId) return _composioSessionId;
+  if (!process.env.COMPOSIO_API_KEY) return null;
   
   try {
-    const result = await composio.tools.execute(toolName, {
-      userId,
-      arguments: params,
-      dangerouslySkipVersionCheck: true,
+    const res = await fetch("https://backend.composio.dev/api/v3/tool_router/session", {
+      method: "POST",
+      headers: { "x-api-key": process.env.COMPOSIO_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: "missi_demo_user",
+        allowed_toolkits: ["gmail", "googlecalendar", "github", "slack", "notion"]
+      })
     });
+    const data = await res.json();
+    _composioSessionId = data.session_id || null;
+    console.log("[COMPOSIO] Tool Router Session created:", _composioSessionId);
+    return _composioSessionId;
+  } catch (e) {
+    console.error("[COMPOSIO] Session creation failed:", e);
+    return null;
+  }
+}
+
+async function composioExecute(toolName: string, _userId: string, params: Record<string, unknown>) {
+  const sessionId = await getComposioSession();
+  if (!sessionId) throw new Error("COMPOSIO_API_KEY not set or session creation failed");
+  
+  console.log("[COMPOSIO] Executing via Tool Router:", toolName, "params:", JSON.stringify(params));
+  
+  try {
+    const res = await fetch(`https://backend.composio.dev/api/v3/tool_router/session/${sessionId}/execute`, {
+      method: "POST",
+      headers: { "x-api-key": process.env.COMPOSIO_API_KEY || "", "Content-Type": "application/json" },
+      body: JSON.stringify({ tool_slug: toolName, arguments: params })
+    });
+    const result = await res.json();
     console.log("[COMPOSIO] Result:", JSON.stringify(result).substring(0, 500));
     return result;
   } catch (e) {
@@ -1192,22 +1208,15 @@ async function executePermissionTool(name: string, args: Record<string, string>,
     case "get_calendar": {
       if (!process.env.COMPOSIO_API_KEY) return "Calendar not configured.";
       try {
-        const now = new Date();
-        const endDate = new Date(now.getTime() + (parseInt(args.days || "7") * 24 * 60 * 60 * 1000));
-        const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": process.env.COMPOSIO_API_KEY || "" },
-          body: JSON.stringify({ tool_name: "GOOGLECALENDAR_LIST_EVENTS", user_id: "missi_demo_user",
-            input: { time_min: now.toISOString(), time_max: endDate.toISOString(), max_results: 15 },
-          }),
-        });
-        const data = await res.json();
-        if (data?.data) {
-          const events = Array.isArray(data.data) ? data.data : [];
+        const data = await composioExecute("GOOGLECALENDAR_FIND_EVENT", "missi_demo_user", {});
+        if (data?.data?.event_data?.event_data) {
+          const events = data.data.event_data.event_data;
           if (!events.length) return "📅 No upcoming events found.";
-          return events.map((e: Record<string, string>) => {
-            const start = e.start ? new Date(e.start).toLocaleString("de-DE") : "";
-            return `📅 **${e.summary || e.title || "Untitled"}**\n   🕐 ${start}${e.location ? `\n   📍 ${e.location}` : ""}`;
+          return events.slice(0, 10).map((e: Record<string, unknown>) => {
+            const start = (e.start as Record<string, string>)?.dateTime 
+              ? new Date((e.start as Record<string, string>).dateTime).toLocaleString("de-DE") 
+              : "";
+            return `📅 **${e.summary || "Untitled"}**\n   🕐 ${start}${(e.location as string) ? `\n   📍 ${e.location}` : ""}`;
           }).join("\n\n");
         }
         return "📅 Calendar not connected. Click 📅 in sidebar.";

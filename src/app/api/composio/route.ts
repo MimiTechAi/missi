@@ -1,36 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Lazy-initialize Composio client (only when API key is available at runtime)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let composioInstance: any = null;
+// Tool Router Session cache
+let _sessionId: string | null = null;
+let _sessionCreated = 0;
 
-async function getComposio() {
-  if (composioInstance) return composioInstance;
+async function getToolRouterSession(): Promise<string | null> {
+  // Reuse session for 30 min
+  if (_sessionId && Date.now() - _sessionCreated < 30 * 60 * 1000) return _sessionId;
   if (!process.env.COMPOSIO_API_KEY) return null;
-  const { Composio } = await import("@composio/core");
-  composioInstance = new Composio({ apiKey: process.env.COMPOSIO_API_KEY });
-  return composioInstance;
-}
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const sessionCache = new Map<string, { session: any; created: number }>();
-
-async function getOrCreateSession(userId: string) {
-  const composio = await getComposio();
-  if (!composio) throw new Error("COMPOSIO_API_KEY not set");
-  const cached = sessionCache.get(userId);
-  if (cached && Date.now() - cached.created < 30 * 60 * 1000) {
-    return cached.session;
+  try {
+    const res = await fetch("https://backend.composio.dev/api/v3/tool_router/session", {
+      method: "POST",
+      headers: { "x-api-key": process.env.COMPOSIO_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: "missi_demo_user",
+        allowed_toolkits: ["gmail", "googlecalendar", "github", "slack", "notion", "googledrive"]
+      })
+    });
+    const data = await res.json();
+    _sessionId = data.session_id || null;
+    _sessionCreated = Date.now();
+    console.log("[COMPOSIO] Tool Router Session:", _sessionId);
+    return _sessionId;
+  } catch (e) {
+    console.error("[COMPOSIO] Session error:", e);
+    return null;
   }
-  const session = await composio.create(userId);
-  sessionCache.set(userId, { session, created: Date.now() });
-  return session;
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, userId = "missi_demo_user", toolkit } = body;
+    const { action, toolkit } = body;
 
     if (!process.env.COMPOSIO_API_KEY) {
       return NextResponse.json({
@@ -39,36 +41,44 @@ export async function POST(req: NextRequest) {
       }, { status: 501 });
     }
 
-    const session = await getOrCreateSession(userId);
+    const sessionId = await getToolRouterSession();
+    if (!sessionId) {
+      return NextResponse.json({ error: "Failed to create Composio session" }, { status: 500 });
+    }
 
     switch (action) {
       case "toolkits": {
-        return NextResponse.json({
-          toolkits: [
-            { id: "gmail", name: "Gmail", icon: "📧", desc: "Read, search, send emails" },
-            { id: "googlecalendar", name: "Google Calendar", icon: "📅", desc: "View, create events" },
-            { id: "github", name: "GitHub", icon: "🐙", desc: "Issues, PRs, repos" },
-            { id: "slack", name: "Slack", icon: "💬", desc: "Messages, channels" },
-            { id: "notion", name: "Notion", icon: "📝", desc: "Pages, databases" },
-            { id: "googledrive", name: "Google Drive", icon: "📁", desc: "Files, sharing" },
-            { id: "spotify", name: "Spotify", icon: "🎵", desc: "Playlists, playback" },
-            { id: "trello", name: "Trello", icon: "📋", desc: "Boards, cards" },
-            { id: "linear", name: "Linear", icon: "🔷", desc: "Issues, projects" },
-          ],
-        });
+        // Get actual toolkit status from Tool Router
+        try {
+          const res = await fetch(
+            `https://backend.composio.dev/api/v3/tool_router/session/${sessionId}/toolkits`,
+            { headers: { "x-api-key": process.env.COMPOSIO_API_KEY || "" } }
+          );
+          const data = await res.json();
+          return NextResponse.json({ toolkits: data.items || [] });
+        } catch {
+          return NextResponse.json({ toolkits: [] });
+        }
       }
 
       case "connect": {
         try {
-          const connectionRequest = await session.authorize(toolkit || "gmail");
-          const connectUrl = connectionRequest.redirectUrl || connectionRequest.url || null;
-          console.log("[COMPOSIO] Connect URL for", toolkit, ":", connectUrl, "Status:", connectionRequest.status);
+          // Use Tool Router link endpoint to create connection
+          const res = await fetch(
+            `https://backend.composio.dev/api/v3/tool_router/session/${sessionId}/link`,
+            {
+              method: "POST",
+              headers: { "x-api-key": process.env.COMPOSIO_API_KEY || "", "Content-Type": "application/json" },
+              body: JSON.stringify({ toolkit_slug: toolkit || "gmail" })
+            }
+          );
+          const data = await res.json();
+          console.log("[COMPOSIO] Connect link for", toolkit, ":", JSON.stringify(data).substring(0, 200));
           return NextResponse.json({
             success: true,
-            url: connectUrl,
-            status: connectionRequest.status || "initiated",
+            url: data.redirect_url || data.url || null,
+            status: data.status || "initiated",
             toolkit,
-            connectionId: connectionRequest.id || null,
           });
         } catch (e) {
           return NextResponse.json({
@@ -81,39 +91,33 @@ export async function POST(req: NextRequest) {
 
       case "status": {
         try {
-          const result = await session.toolkits({
-            slugs: toolkit ? [toolkit] : undefined,
-          });
-          return NextResponse.json({ toolkits: result });
+          const res = await fetch(
+            `https://backend.composio.dev/api/v3/tool_router/session/${sessionId}/toolkits`,
+            { headers: { "x-api-key": process.env.COMPOSIO_API_KEY || "" } }
+          );
+          const data = await res.json();
+          const items = data.items || [];
+          if (toolkit) {
+            const found = items.find((t: { slug: string }) => t.slug === toolkit);
+            return NextResponse.json({ toolkit: found || null, connected: found?.connected_account?.status === "ACTIVE" });
+          }
+          return NextResponse.json({ toolkits: items });
         } catch {
           return NextResponse.json({ toolkits: [] });
         }
       }
 
-      case "mcp": {
-        return NextResponse.json({
-          url: session.mcp?.url || null,
-          type: session.mcp?.type || "sse",
-          headers: session.mcp?.headers || {},
-          sessionId: session.sessionId,
-        });
-      }
-
       case "execute": {
         const { toolName, params } = body;
         try {
-          const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-key": process.env.COMPOSIO_API_KEY || "",
-            },
-            body: JSON.stringify({
-              tool_name: toolName,
-              input: params || {},
-              user_id: userId,
-            }),
-          });
+          const res = await fetch(
+            `https://backend.composio.dev/api/v3/tool_router/session/${sessionId}/execute`,
+            {
+              method: "POST",
+              headers: { "x-api-key": process.env.COMPOSIO_API_KEY || "", "Content-Type": "application/json" },
+              body: JSON.stringify({ tool_slug: toolName, arguments: params || {} })
+            }
+          );
           const data = await res.json();
           return NextResponse.json({ success: res.ok, result: data, tool: toolName });
         } catch (e) {
