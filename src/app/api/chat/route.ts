@@ -1114,20 +1114,19 @@ async function executePermissionTool(name: string, args: Record<string, string>,
       // Priority 2: Use Composio SDK (properly authenticated)
       if (!process.env.COMPOSIO_API_KEY) return "Gmail not connected. Click the 📧 icon in the sidebar to connect Gmail.";
       try {
-        const data = await composioExecute("GMAIL_SEARCH_EMAILS", "missi_demo_user", {
+        const data = await composioExecute("GMAIL_FETCH_EMAILS", "missi_demo_user", {
           query: args.query, max_results: args.limit || 5,
         });
         console.log("[search_gmail] Raw result:", JSON.stringify(data).substring(0, 1000));
         // Handle various response formats
-        const emails = data?.data || data?.response_data?.data || data?.result?.data || (Array.isArray(data) ? data : []);
-        if (!emails.length) {
-          // Return the raw response for debugging
-          const debugInfo = JSON.stringify(data).substring(0, 200);
-          return `No emails found for: "${args.query}". Debug: ${debugInfo}`;
-        }
-        return emails.map((m: Record<string, string>) =>
-          `📧 **${m.subject || "No subject"}**\n   From: ${m.from || m.sender || "Unknown"}\n   Date: ${m.date || ""}\n   Preview: ${(m.snippet || m.body || "").slice(0, 150)}`
-        ).join("\n\n");
+        const messages = data?.data?.messages || data?.data || [];
+        if (!messages.length) return `No emails found for: "${args.query}".`;
+        return messages.slice(0, 5).map((m: Record<string, string>) => {
+          const subject = m.subject || m.messageText?.split("\n")[0]?.substring(0, 80) || "(no subject)";
+          const from = m.from || m.sender || "";
+          const snippet = (m.snippet || m.messageText || "").slice(0, 150);
+          return `📧 **${subject}**\n   From: ${from}\n   Preview: ${snippet}`;
+        }).join("\n\n");
       } catch (e) {
         return `Gmail search failed: ${e instanceof Error ? e.message : "unknown"}. Click 📧 in sidebar to connect.`;
       }
@@ -1162,7 +1161,7 @@ async function executePermissionTool(name: string, args: Record<string, string>,
       // Priority 2: Composio SDK
       if (!process.env.COMPOSIO_API_KEY) return "Gmail not connected. Click 📧 in sidebar to connect.";
       try {
-        const data = await composioExecute("GMAIL_GET_EMAIL", "missi_demo_user", {
+        const data = await composioExecute("GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID", "missi_demo_user", {
           message_id: args.id || args.messageId,
         });
         const email = data?.data || data;

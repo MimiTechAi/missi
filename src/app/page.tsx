@@ -194,6 +194,21 @@ export default function Home() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [composioConnections, setComposioConnections] = useState<Record<string, boolean>>({});
   const [connectingToolkit, setConnectingToolkit] = useState<string | null>(null);
+
+  // Check Composio connection status on mount
+  useEffect(() => {
+    fetch("/api/composio", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "status" }),
+    }).then(r => r.json()).then(data => {
+      const connections: Record<string, boolean> = {};
+      (data.toolkits || []).forEach((t: { slug: string; connected_account?: { status?: string } }) => {
+        connections[t.slug] = t.connected_account?.status === "ACTIVE";
+      });
+      if (Object.keys(connections).length > 0) setComposioConnections(connections);
+    }).catch(() => {});
+  }, []);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [wakeWordEnabled, setWakeWordEnabled] = useState(false);
   
@@ -1293,11 +1308,7 @@ export default function Home() {
 
   // ── Composio: Connect external toolkit (Gmail, Calendar, GitHub, etc.) ──
   const connectToolkit = useCallback(async (toolkit: string) => {
-    // Gmail: use direct OAuth (Composio Gmail returns empty results)
-    if (toolkit === "gmail") {
-      connectGmail();
-      return;
-    }
+    // All toolkits (including Gmail) now use Composio Tool Router
     setConnectingToolkit(toolkit);
     try {
       const res = await fetch("/api/composio", {
