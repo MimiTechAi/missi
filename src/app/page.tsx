@@ -1780,7 +1780,7 @@ export default function Home() {
                   connectingToolkit === tk.id ? "bg-amber-50 border border-amber-200 animate-pulse" :
                   "hover:bg-zinc-50 border border-transparent"
                 }`}>
-                <span className="text-[18px]">{tk.icon}</span>
+                <span className="flex items-center justify-center w-5 h-5">{brandIcon(tk.icon)}</span>
                 <div>
                   <p className="text-[13px] font-medium text-zinc-700">{composioConnections[tk.id] ? `✓ ${tk.label}` : tk.label}</p>
                   <p className="text-[11px] text-zinc-400">{tk.desc}</p>
