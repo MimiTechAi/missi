@@ -1305,7 +1305,7 @@ export default function Home() {
             consecutiveFrames++;
             if (consecutiveFrames >= REQUIRED_FRAMES) {
               // USER IS TALKING — BARGE IN!
-              console.log("[MISSI] Barge-in detected! RMS:", rms.toFixed(4));
+              // Barge-in detected
               // Stop playback
               if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
               speechSynthesis.cancel();
@@ -1329,7 +1329,7 @@ export default function Home() {
 
         bargeInAnimRef.current = requestAnimationFrame(checkVoice);
       } catch (err) {
-        console.warn("[MISSI] Barge-in mic access denied:", err);
+        // Barge-in mic denied — silent fail
       }
     })();
 
@@ -1488,7 +1488,7 @@ export default function Home() {
       )}
 
       {/* ── LEFT SIDEBAR ── */}
-      <aside className="w-[52px] flex-shrink-0 bg-zinc-50 border-r border-zinc-200 flex flex-col items-center py-3 gap-2">
+      <aside className="hidden md:flex w-[52px] flex-shrink-0 bg-zinc-50 border-r border-zinc-200 flex-col items-center py-3 gap-2">
         {/* Logo */}
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-xs font-black text-white shadow-sm mb-1">
           M
@@ -1591,7 +1591,7 @@ export default function Home() {
             <p className="mt-0.5 text-[11px] text-zinc-300">25 Tools · 4 Models · Voxtral · ElevenLabs · Vision · 10 Languages</p>
 
             {voiceState === "idle" && (
-              <div className="mt-8 grid grid-cols-2 gap-2.5 max-w-md w-full">
+              <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-w-md w-full">
                 {(() => {
                   const promptsByLang: Record<string, {icon: string; text: string}[]> = {
                     "de": [
@@ -1639,7 +1639,7 @@ export default function Home() {
         ) : (
           /* CHAT: Full-width messages (like ChatGPT/Perplexity) */
           <div className="flex-1 overflow-y-auto bg-white">
-            <div className="max-w-[720px] mx-auto px-5 py-6 space-y-6" aria-live="polite">
+            <div className="max-w-[720px] mx-auto px-3 sm:px-5 py-4 sm:py-6 space-y-5 sm:space-y-6" aria-live="polite">
               {messages.map((msg, i) => (
                 <div key={i} className="animate-slide-in">
                   {/* USER MESSAGE */}
@@ -1905,8 +1905,8 @@ export default function Home() {
         )}
 
         {/* ── BOTTOM INPUT ── */}
-        <div className="flex-shrink-0 border-t border-zinc-100 bg-white px-5 py-3">
-          <div className="max-w-[720px] mx-auto">
+        <div className="flex-shrink-0 border-t border-zinc-100 bg-white px-3 sm:px-5 py-3">
+          <div className="max-w-[720px] mx-auto px-1 sm:px-0">
             {/* Voice transcript */}
             {voiceState === "listening" && input && (
               <div className="mb-2.5 px-3 py-2 bg-red-50/70 border border-red-200 rounded-xl flex items-center gap-2.5 animate-fade-in backdrop-blur-sm">
