@@ -1657,51 +1657,67 @@ export default function Home() {
 
         {/* ── CHAT AREA ── */}
         {messages.length === 0 && !isLoading ? (
-          /* IDLE: Hero centered (like ChatGPT) */
-          <div className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
-            <div className="scale-110 sm:scale-100 transition-transform"><VoiceOrb state={voiceState} audioLevel={audioLevel} size={100} onClick={handleOrbClick} /></div>
-            <h2 className="mt-5 sm:mt-6 text-[22px] sm:text-[26px] font-bold text-zinc-800 tracking-tight">What can I help with?</h2>
-            <p className="mt-1.5 text-[13px] text-zinc-400">
-              Voice-first AI operating system powered by Mistral
+          /* IDLE: Hero centered — premium design */
+          <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
+            {/* Ambient glow behind orb */}
+            <div className="relative flex items-center justify-center">
+              <div className="absolute w-40 h-40 rounded-full bg-orange-100/40 blur-3xl" />
+              <div className="relative z-10">
+                <VoiceOrb state={voiceState} audioLevel={audioLevel} size={96} onClick={handleOrbClick} />
+              </div>
+            </div>
+            <h2 className="mt-6 text-[24px] sm:text-[28px] font-bold text-zinc-900 tracking-[-0.5px] text-center leading-tight">
+              What can I help with?
+            </h2>
+            <p className="mt-2 text-[13px] text-zinc-400 text-center max-w-xs">
+              Voice-first AI — speak naturally or type anything
             </p>
-            <p className="mt-0.5 text-[11px] text-zinc-300">10,000+ Tools · 4 Models · Voxtral · ElevenLabs · Vision · 10 Languages</p>
 
             {voiceState === "idle" && (
-              <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-w-md w-full">
+              <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-lg w-full">
                 {(() => {
                   const promptsByLang: Record<string, {icon: string; text: string}[]> = {
                     "de": [
-                      {icon:"🔍", text:"Neueste KI-Durchbrüche"},
-                      {icon:"🌤", text:"Wetter in Berlin"},
+                      {icon:"🔍", text:"KI-News von heute"},
+                      {icon:"🌤️", text:"Wetter in Berlin"},
                       {icon:"📈", text:"Tesla & Bitcoin Preis"},
-                      {icon:"🌐", text:"Übersetze in 5 Sprachen"},
+                      {icon:"💻", text:"Python-Skript schreiben"},
+                      {icon:"📧", text:"Gmail verbinden"},
+                      {icon:"🌐", text:"Übersetze auf Englisch"},
                     ],
                     "en": [
-                      {icon:"🔍", text:"Latest AI breakthroughs"},
-                      {icon:"🌤", text:"Weather in Tokyo"},
+                      {icon:"🔍", text:"Latest AI news today"},
+                      {icon:"🌤️", text:"Weather in New York"},
                       {icon:"📈", text:"Tesla & Bitcoin price"},
-                      {icon:"🌐", text:"Translate into 5 languages"},
+                      {icon:"💻", text:"Write a Python script"},
+                      {icon:"📧", text:"Connect my Gmail"},
+                      {icon:"🌐", text:"Translate to German"},
                     ],
                     "fr": [
-                      {icon:"🔍", text:"Avancées en IA"},
-                      {icon:"🌤", text:"Météo à Paris"},
+                      {icon:"🔍", text:"Actualités IA du jour"},
+                      {icon:"🌤️", text:"Météo à Paris"},
                       {icon:"📈", text:"Prix Tesla et Bitcoin"},
-                      {icon:"🌐", text:"Traduire en 5 langues"},
+                      {icon:"💻", text:"Écrire du code Python"},
+                      {icon:"📧", text:"Connecter Gmail"},
+                      {icon:"🌐", text:"Traduire en anglais"},
                     ],
                     "es": [
-                      {icon:"🔍", text:"Avances en IA"},
-                      {icon:"🌤", text:"Tiempo en Madrid"},
+                      {icon:"🔍", text:"Noticias de IA de hoy"},
+                      {icon:"🌤️", text:"Tiempo en Madrid"},
                       {icon:"📈", text:"Precio Tesla y Bitcoin"},
-                      {icon:"🌐", text:"Traducir a 5 idiomas"},
+                      {icon:"💻", text:"Escribir código Python"},
+                      {icon:"📧", text:"Conectar Gmail"},
+                      {icon:"🌐", text:"Traducir al inglés"},
                     ],
                   };
                   const langKey = sttLang.split("-")[0];
                   const prompts = promptsByLang[langKey] || promptsByLang["en"];
                   return prompts.map((p) => (
                     <button key={p.text} onClick={() => sendMessage(p.text)}
-                      className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-zinc-50/80 hover:bg-white border border-zinc-200/80 hover:border-orange-200 text-left transition-all duration-200 hover:shadow-[0_2px_12px_rgba(251,146,60,0.1)] group">
-                      <span className="text-xl">{p.icon}</span>
-                      <span className="text-[13px] text-zinc-600 group-hover:text-zinc-900 leading-snug">{p.text}</span>
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white hover:bg-orange-50/30 border border-zinc-200 hover:border-orange-300/60 text-left transition-all duration-200 hover:shadow-[0_2px_16px_rgba(251,146,60,0.08)] group shadow-sm">
+                      <span className="text-[18px] group-hover:scale-110 transition-transform duration-200 flex-shrink-0">{p.icon}</span>
+                      <span className="text-[13px] font-medium text-zinc-600 group-hover:text-zinc-900 leading-snug">{p.text}</span>
+                      <svg className="ml-auto w-3.5 h-3.5 text-zinc-300 group-hover:text-orange-400 group-hover:translate-x-0.5 transition-all flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
                     </button>
                   ));
                 })()}
@@ -1718,10 +1734,11 @@ export default function Home() {
                   { icon: "💻", label: "Code" },
                   { icon: "📈", label: "Finance" },
                   { icon: "👁️", label: "Vision" },
+                  { icon: "🎨", label: "Images" },
                   { icon: "🌐", label: "10K+ Tools" },
                 ].map((cap) => (
-                  <span key={cap.label} className="text-[11px] text-zinc-400 flex items-center gap-1">
-                    <span className="text-[12px]">{cap.icon}</span>{cap.label}
+                  <span key={cap.label} className="inline-flex items-center gap-1 text-[11px] text-zinc-400 bg-zinc-50 border border-zinc-100 rounded-full px-2 py-0.5">
+                    <span className="text-[11px]">{cap.icon}</span>{cap.label}
                   </span>
                 ))}
               </div>
@@ -1740,14 +1757,14 @@ export default function Home() {
                   {/* USER MESSAGE */}
                   {msg.role === "user" && (
                     <div className="flex justify-end mb-5">
-                      <div className="max-w-[85%] sm:max-w-[75%] bg-zinc-100/80 rounded-2xl rounded-tr-md px-3.5 sm:px-4 py-2.5 sm:py-3 shadow-sm">
+                      <div className="max-w-[85%] sm:max-w-[75%] bg-gradient-to-br from-zinc-900 to-zinc-800 text-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-sm shadow-zinc-900/10">
                         {msg.fromVoice && (
-                          <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 mb-1">
+                          <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 mb-1.5">
                             <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/></svg>
                             Voxtral Voice
                           </div>
                         )}
-                        <p className="text-[14px] text-zinc-800 leading-relaxed">{msg.content}</p>
+                        <p className="text-[14px] text-zinc-100 leading-relaxed">{msg.content}</p>
                         {msg.image && (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={msg.image} alt="" className="mt-2 max-w-[220px] rounded-lg border border-zinc-200" />
@@ -1760,9 +1777,9 @@ export default function Home() {
                   {msg.role === "assistant" && (
                     <div className="mb-5 group">
                       {/* Avatar + model */}
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-orange-500 via-orange-600 to-amber-600 flex items-center justify-center text-[9px] font-black text-white shadow-sm shadow-orange-500/20">M</div>
-                        <span className="text-[12px] font-semibold text-zinc-700">MISSI</span>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-600 flex items-center justify-center text-[10px] font-black text-white shadow-md shadow-orange-500/20">M</div>
+                        <span className="text-[13px] font-semibold text-zinc-800">MISSI</span>
                         {msg.model && (
                           <span className={`text-[11px] font-medium ${
                             msg.model.model.includes("large") ? "text-violet-500" :
@@ -1904,7 +1921,7 @@ export default function Home() {
                           <div className="mt-4 flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-500" style={{ animationDelay: "300ms" }}>
                             {msg.suggestions.map((suggestion, j) => (
                               <button key={j} onClick={() => sendMessage(suggestion)}
-                                className="px-3.5 py-2 rounded-full text-[13px] text-zinc-600 bg-zinc-50/80 hover:bg-orange-50 border border-zinc-200 hover:border-orange-200 hover:text-orange-700 transition-all duration-200 flex items-center gap-1.5 group">
+                                className="px-3.5 py-1.5 rounded-full text-[12px] font-medium text-zinc-500 bg-white hover:bg-orange-50 border border-zinc-200/80 hover:border-orange-300/70 hover:text-orange-700 transition-all duration-200 flex items-center gap-1.5 group shadow-sm hover:shadow-none">
                                 <span className="text-zinc-400 group-hover:text-orange-500 transition-colors text-[11px]">→</span>
                                 {suggestion}
                               </button>

@@ -16,10 +16,10 @@ interface Particle {
 }
 
 const STATE_CONFIGS: Record<VoiceState, { hue: number; sat: number; light: number; pulseSpeed: number; rings: number; particleCount: number }> = {
-  idle: { hue: 210, sat: 50, light: 55, pulseSpeed: 1.2, rings: 2, particleCount: 3 },
-  listening: { hue: 0, sat: 75, light: 55, pulseSpeed: 1.5, rings: 3, particleCount: 12 },
-  thinking: { hue: 38, sat: 85, light: 55, pulseSpeed: 0.6, rings: 3, particleCount: 10 },
-  speaking: { hue: 210, sat: 75, light: 50, pulseSpeed: 1.8, rings: 3, particleCount: 15 },
+  idle:      { hue: 218, sat: 55, light: 58, pulseSpeed: 1.0, rings: 2, particleCount: 2 },   // Soft blue — calm
+  listening: { hue: 15,  sat: 85, light: 55, pulseSpeed: 1.8, rings: 3, particleCount: 14 },  // Orange-red — active
+  thinking:  { hue: 265, sat: 70, light: 58, pulseSpeed: 0.5, rings: 3, particleCount: 8 },   // Violet — deep thought
+  speaking:  { hue: 195, sat: 80, light: 50, pulseSpeed: 2.0, rings: 3, particleCount: 18 },  // Cyan-blue — speaking
 };
 
 export default function VoiceOrb({
@@ -128,7 +128,8 @@ export default function VoiceOrb({
     }
 
     // ── Main orb ──
-    const orbR = baseRadius * (1 + al * 0.15 + Math.sin(time * config.pulseSpeed) * 0.03);
+    const idlePulse = state === "idle" ? Math.sin(time * config.pulseSpeed) * 0.025 : Math.sin(time * config.pulseSpeed) * 0.04;
+    const orbR = baseRadius * (1 + al * 0.15 + idlePulse);
 
     // Orb shadow
     const shadow = ctx.createRadialGradient(cx, cy + orbR * 0.1, orbR * 0.8, cx, cy, orbR * 1.4);
@@ -226,18 +227,27 @@ export default function VoiceOrb({
     }
 
     // ── State label ──
+    // State label below orb
     const labels: Record<VoiceState, string> = {
-      idle: "TAP TO TALK",
-      listening: "LISTENING…",
-      thinking: "THINKING…",
-      speaking: "TAP TO STOP",
+      idle: "TAP  TO  TALK",
+      listening: "LISTENING ...",
+      thinking: "THINKING ...",
+      speaking: "TAP  TO  STOP",
     };
-    ctx.font = `600 ${9 * dpr}px ui-monospace, 'SF Mono', monospace`;
+    ctx.font = `600 ${8 * dpr}px ui-monospace, 'SF Mono', monospace`;
     ctx.textAlign = "center";
-    ctx.letterSpacing = `${1.5 * dpr}px`;
-    ctx.fillStyle = `hsla(${config.hue}, 20%, 50%, 0.3)`;
-    ctx.fillText(labels[state], cx, cy + orbR + 24 * dpr);
-    ctx.letterSpacing = "0px";
+    ctx.fillStyle = `hsla(${config.hue}, 30%, 55%, 0.5)`;
+    ctx.fillText(labels[state], cx, cy + orbR + 22 * dpr);
+
+    // "M" inside orb when idle
+    if (state === "idle") {
+      ctx.font = `800 ${orbR * 0.55}px -apple-system, BlinkMacSystemFont, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = `rgba(255,255,255,0.18)`;
+      ctx.fillText("M", cx, cy);
+      ctx.textBaseline = "alphabetic";
+    }
 
     timeRef.current += 0.016;
     animRef.current = requestAnimationFrame(draw);

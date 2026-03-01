@@ -234,3 +234,86 @@ button, [role="button"] {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 0ms; /* Only apply when explicitly set */
 }
+
+/* ── Premium Message Bubble Styles ── */
+
+/* Dark user bubble with inner highlight */
+.user-bubble {
+  background: linear-gradient(135deg, #18181b 0%, #27272a 100%);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+/* AI response code block border glow */
+.prose pre:hover {
+  border-color: rgba(251, 146, 60, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(251, 146, 60, 0.1);
+  transition: all 0.3s ease;
+}
+
+/* Capability badge hover */
+.cap-badge {
+  transition: all 0.15s ease;
+}
+.cap-badge:hover {
+  background: #fff7ed;
+  border-color: rgba(251, 146, 60, 0.3);
+  color: #ea580c;
+}
+
+/* Suggestion card arrow on hover */
+.suggestion-card svg {
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+.suggestion-card:hover svg {
+  opacity: 1;
+}
+
+/* ── Loading States ── */
+@keyframes thinkingDots {
+  0%, 20% { opacity: 0.2; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+  80%, 100% { opacity: 0.2; transform: scale(0.8); }
+}
+
+.thinking-dot:nth-child(1) { animation: thinkingDots 1.2s ease-in-out infinite 0s; }
+.thinking-dot:nth-child(2) { animation: thinkingDots 1.2s ease-in-out infinite 0.2s; }
+.thinking-dot:nth-child(3) { animation: thinkingDots 1.2s ease-in-out infinite 0.4s; }
+
+/* ── Voice status indicator pulse ── */
+@keyframes statusPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(251, 146, 60, 0); }
+}
+
+.voice-active {
+  animation: statusPulse 1.5s ease-out infinite;
+}
+
+/* ── Composio connect button states ── */
+.composio-btn-connected {
+  background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
+  border-color: #a7f3d0;
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2);
+}
+
+.composio-btn-connecting {
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  border-color: #fcd34d;
+}
+
+/* ── Sidebar tooltip ── */
+.sidebar-tooltip {
+  pointer-events: none;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Page transition ── */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.page-enter {
+  animation: pageIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
