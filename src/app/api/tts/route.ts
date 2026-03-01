@@ -15,13 +15,12 @@ export async function POST(req: NextRequest) {
 
     const voice = voiceId || "EXAVITQu4vr4xnSDxMaL"; // Sarah default
     const lang = (language || "en-US").split("-")[0].toLowerCase();
-    const isEnglish = lang === "en";
-    const isShort = text.length < 80;
 
-    // eleven_flash_v2_5 = lowest latency (280ms) for English
-    // eleven_multilingual_v2 = best quality for other languages
-    const modelId = isEnglish ? "eleven_flash_v2_5" : "eleven_multilingual_v2";
-    const optimizeLatency = isShort ? 4 : (isEnglish ? 3 : 2);
+    // ElevenLabs model selection (2026 best practice):
+    // - eleven_turbo_v2_5: Best balance of quality + speed, supports 32 languages
+    // - eleven_multilingual_v2: Highest quality for non-English, slightly slower
+    // - eleven_flash_v2_5: Lowest latency for English-only
+    const modelId = lang === "en" ? "eleven_turbo_v2_5" : "eleven_multilingual_v2";
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
@@ -39,12 +38,12 @@ export async function POST(req: NextRequest) {
           text: text.slice(0, 5000),
           model_id: modelId,
           voice_settings: {
-            stability: 0.48,
-            similarity_boost: 0.84,
-            style: 0.28,
+            stability: 0.5,
+            similarity_boost: 0.85,
+            style: 0.3,
             use_speaker_boost: true,
           },
-          optimize_streaming_latency: optimizeLatency,
+          optimize_streaming_latency: 3,
         }),
         signal: controller.signal,
       }

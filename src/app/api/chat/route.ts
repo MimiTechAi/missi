@@ -71,56 +71,45 @@ function routeModel(message: string, hasImage: boolean): ModelRoute {
   }
 
   const lower = message.toLowerCase();
+  const wordCount = message.split(/\s+/).length;
 
-  // Code-related
+  // Code generation / debugging — specialized model
   const codeKeywords = [
     "code", "function", "class", "debug", "refactor", "implement",
     "javascript", "python", "typescript", "rust", "html", "css",
     "algorithm", "regex", "api", "endpoint", "database", "sql",
     "git", "deploy", "docker", "compile", "syntax", "variable",
-    "write a script", "write code", "fix this", "bug",
+    "write a script", "write code", "fix this", "bug", "programmiere",
+    "schreib.*code", "erstelle.*funktion", "programmier",
   ];
   if (codeKeywords.some((k) => lower.includes(k))) {
     return {
       model: "codestral-latest",
       label: "Codestral (Code Specialist)",
-      reason: "Code-related query detected",
+      reason: "Code generation or debugging",
     };
   }
 
-  // Complex reasoning / research / analysis
-  const complexKeywords = [
-    "research", "analyze", "compare", "explain in detail", "write a report",
-    "summarize", "pros and cons", "strategy", "plan", "evaluate",
-    "deep dive", "comprehensive", "thorough", "essay", "article",
-    "business plan", "market analysis", "step by step",
-    "introduce yourself", "stell dich vor", "show what you can do",
-    "who are you", "wer bist du", "what can you do", "was kannst du",
-    // German
-    "recherchiere", "analysiere", "vergleiche", "erstelle", "bericht",
-    "zusammenfassung", "strategie", "untersuche", "erkläre",
-    // French
-    "recherche", "analyse", "compare", "rapport", "résumé",
-    // Spanish
-    "investiga", "analiza", "compara", "informe", "resumen",
+  // Simple, fast queries — greetings, short acknowledgments, yes/no
+  const simplePatterns = [
+    /^(hi|hey|hello|hallo|yo|ok|ja|nein|yes|no|danke|thanks|cool|nice|gut)\b/i,
+    /^.{1,15}$/,  // Very short messages (under 15 chars)
   ];
-  if (
-    complexKeywords.some((k) => lower.includes(k)) ||
-    message.length > 200 ||
-    message.includes("?") && message.split("?").length > 2
-  ) {
+  if (simplePatterns.some((p) => p.test(message.trim())) && wordCount <= 5) {
     return {
-      model: "mistral-large-latest",
-      label: "Mistral Large (Deep Reasoning)",
-      reason: "Complex analysis or multi-part query",
+      model: "mistral-small-latest",
+      label: "Mistral Small (Fast)",
+      reason: "Quick response",
     };
   }
 
-  // Default: fast model for simple queries
+  // Everything else → Mistral Large for best quality
+  // This includes: tool calls, emails, calendar, research, analysis,
+  // questions, conversations, translations, introductions, etc.
   return {
-    model: "mistral-small-latest",
-    label: "Mistral Small (Fast)",
-    reason: "Simple query — optimized for speed",
+    model: "mistral-large-latest",
+    label: "Mistral Large (Intelligence)",
+    reason: "Best quality response",
   };
 }
 
@@ -850,7 +839,7 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
         const format = args.format === "bullets" ? "bullet points" : "a concise paragraph";
         const length = args.max_length || "medium";
         const res = await mistral.chat.complete({
-          model: "mistral-small-latest",
+          model: "mistral-large-latest",
           messages: [
             {
               role: "system",
@@ -1115,7 +1104,8 @@ async function executePermissionTool(name: string, args: Record<string, string>,
       if (!process.env.COMPOSIO_API_KEY) return "Gmail not connected. Click the 📧 icon in the sidebar to connect Gmail.";
       try {
         const data = await composioExecute("GMAIL_FETCH_EMAILS", "missi_demo_user", {
-          query: args.query, max_results: args.limit || 5,
+          query: args.query || "newer_than:7d",
+          max_results: args.limit || 5,
         });
         console.log("[search_gmail] Raw result:", JSON.stringify(data).substring(0, 1000));
         // Handle various response formats
@@ -1207,7 +1197,11 @@ async function executePermissionTool(name: string, args: Record<string, string>,
     case "get_calendar": {
       if (!process.env.COMPOSIO_API_KEY) return "Calendar not configured.";
       try {
-        const data = await composioExecute("GOOGLECALENDAR_FIND_EVENT", "missi_demo_user", {});
+        const now = new Date();
+        const data = await composioExecute("GOOGLECALENDAR_FIND_EVENT", "missi_demo_user", {
+          time_min: now.toISOString(),
+          max_results: 15,
+        });
         if (data?.data?.event_data?.event_data) {
           const events = data.data.event_data.event_data;
           if (!events.length) return "📅 No upcoming events found.";
@@ -1402,9 +1396,17 @@ export async function POST(req: NextRequest) {
           if (permContext.fileIndex) connectedServices.push("Local Files (folder access granted, use search_files tool)");
           if (permContext.location) connectedServices.push("Location: " + permContext.location);
 
-          const servicesContext = "\n\n<connected_services>\n" + (connectedServices.length > 0
-            ? connectedServices.map(s => "- " + s).join("\n") + "\nAll listed services are authorized and ready. Call tools immediately — never ask the user to connect first."
-            : "No services explicitly connected via frontend OAuth.\nComposio may still have active connections — ALWAYS try the tool first.\nOnly suggest sidebar connection if a tool returns an explicit auth error.") + "\n</connected_services>";
+          const servicesContext = "\n\n<connected_services>\n" + 
+            "The following Composio integrations are ACTIVE and ready (server-side connections):\n" +
+            "- Gmail (ACTIVE) — use search_gmail/read_gmail for email queries\n" +
+            "- Google Calendar (ACTIVE) — use get_calendar for schedule queries\n" +
+            "- GitHub (ACTIVE) — available for repo/issue/PR queries\n" +
+            (connectedServices.length > 0 ? connectedServices.map(s => "- " + s).join("\n") + "\n" : "") +
+            "RULES:\n" +
+            "1. NEVER tell the user to connect or click sidebar icons for Gmail, Calendar, or GitHub — they ARE connected.\n" +
+            "2. Call tools IMMEDIATELY when asked about emails, calendar, or repos.\n" +
+            "3. Only suggest reconnection if a tool returns an explicit auth error.\n" +
+            "</connected_services>";
 
           // 3. Build messages
           const fullMessages: Array<Record<string, unknown>> = [

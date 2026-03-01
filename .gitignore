@@ -44,3 +44,4 @@ competitive-analysis.md
 # Internal drafts
 linkedin-post-draft.md
 *.backup
+.env.local
