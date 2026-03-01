@@ -1189,7 +1189,7 @@ async function executePermissionTool(name: string, args: Record<string, string>,
       // Priority 2: Composio Google Drive (SDK)
       if (!process.env.COMPOSIO_API_KEY) return "No folder connected. Click the 📁 icon in the sidebar to grant folder access.";
       try {
-        const data = await composioExecute("GOOGLEDRIVE_SEARCH_FILES", "missi_demo_user", {
+        const data = await composioExecute("GOOGLEDRIVE_FIND_FILE", "missi_demo_user", {
           query: args.query, max_results: 10,
         });
         const files = data?.data || (Array.isArray(data) ? data : []);
