@@ -61,11 +61,14 @@ export async function POST(req: NextRequest) {
       case "connect": {
         try {
           const connectionRequest = await session.authorize(toolkit || "gmail");
+          const connectUrl = connectionRequest.redirectUrl || connectionRequest.url || null;
+          console.log("[COMPOSIO] Connect URL for", toolkit, ":", connectUrl, "Status:", connectionRequest.status);
           return NextResponse.json({
             success: true,
-            url: connectionRequest.url || connectionRequest.redirectUrl || null,
+            url: connectUrl,
             status: connectionRequest.status || "initiated",
             toolkit,
+            connectionId: connectionRequest.id || null,
           });
         } catch (e) {
           return NextResponse.json({

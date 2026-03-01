@@ -1717,7 +1717,7 @@ export default function Home() {
                 ? "bg-amber-50 ring-1 ring-amber-200 animate-pulse"
                 : "hover:bg-zinc-100"
             }`} title={`${composioConnections[tk.id] ? "✓ " : ""}${tk.label}`} aria-label={`Connect ${tk.label}`}>
-            {tk.icon}
+            {brandIcon(tk.icon)}
           </button>
         ))}
 
@@ -1768,11 +1768,11 @@ export default function Home() {
             </button>
             <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider mb-2 px-1">Integrations</p>
             {[
-              { id: "gmail", icon: "📧", label: "Gmail", desc: "Read & search emails" },
-              { id: "googlecalendar", icon: "📅", label: "Calendar", desc: "View upcoming events" },
-              { id: "github", icon: "🐙", label: "GitHub", desc: "Issues, PRs, repos" },
-              { id: "slack", icon: "💬", label: "Slack", desc: "Messages & channels" },
-              { id: "notion", icon: "📝", label: "Notion", desc: "Pages & databases" },
+              { id: "gmail", icon: "gmail", label: "Gmail", desc: "Read & search emails" },
+              { id: "googlecalendar", icon: "calendar", label: "Calendar", desc: "View upcoming events" },
+              { id: "github", icon: "github", label: "GitHub", desc: "Issues, PRs, repos" },
+              { id: "slack", icon: "slack", label: "Slack", desc: "Messages & channels" },
+              { id: "notion", icon: "notion", label: "Notion", desc: "Pages & databases" },
             ].map(tk => (
               <button key={tk.id} onClick={() => { connectToolkit(tk.id); setShowMobileSidebar(false); }}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${

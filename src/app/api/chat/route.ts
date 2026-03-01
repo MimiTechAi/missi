@@ -14,29 +14,31 @@ async function getComposioClient() {
 async function composioExecute(toolName: string, userId: string, params: Record<string, unknown>) {
   const composio = await getComposioClient();
   if (!composio) throw new Error("COMPOSIO_API_KEY not set");
+  
+  console.log("[COMPOSIO] Executing:", toolName, "for user:", userId, "params:", JSON.stringify(params));
+  
+  // V3 SDK: Use session + COMPOSIO_MULTI_EXECUTE_TOOL meta-tool
   try {
-    console.log("[COMPOSIO] Executing:", toolName, "for user:", userId, "params:", JSON.stringify(params));
-    const result = await composio.tools.execute(toolName, {
-      userId,
-      arguments: params,
-    });
-    console.log("[COMPOSIO] SDK Result:", JSON.stringify(result).substring(0, 500));
+    const session = await composio.create(userId);
+    
+    // Use the multi-execute tool to run the action
+    const result = await session.execute(toolName, params);
+    console.log("[COMPOSIO] Session Execute Result:", JSON.stringify(result).substring(0, 500));
     return result;
-  } catch (e) {
-    console.error("[COMPOSIO] SDK Error:", e instanceof Error ? e.message : e);
-    // Fallback to direct API if SDK fails
+  } catch (e1) {
+    console.error("[COMPOSIO] Session execute failed:", e1 instanceof Error ? e1.message : e1);
+    
+    // Fallback: Try tools.execute with the slug
     try {
-      const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": process.env.COMPOSIO_API_KEY || "" },
-        body: JSON.stringify({ tool_name: toolName, input: params, user_id: userId }),
+      const result = await composio.tools.execute(toolName, {
+        userId,
+        arguments: params,
       });
-      const data = await res.json();
-      console.log("[COMPOSIO] Direct API Result:", JSON.stringify(data).substring(0, 500));
-      return data;
+      console.log("[COMPOSIO] Tools.execute Result:", JSON.stringify(result).substring(0, 500));
+      return result;
     } catch (e2) {
-      console.error("[COMPOSIO] Direct API also failed:", e2);
-      throw e;
+      console.error("[COMPOSIO] Tools.execute also failed:", e2 instanceof Error ? e2.message : e2);
+      return { error: e2 instanceof Error ? e2.message : "Composio execution failed", data: null };
     }
   }
 }
