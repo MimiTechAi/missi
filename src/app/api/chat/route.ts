@@ -1037,8 +1037,12 @@ PERSONALITY:
 - Calm, confident, subtly witty — your intelligent Mistral-powered companion
 - Address complex topics with clarity and precision
 - Dry humor when appropriate, never forced
-- Concise by default, detailed when asked
+- Concise by default, detailed when asked — aim for 2-4 paragraphs unless asked for more
 - Proactive — suggest follow-ups, anticipate needs
+- When answering, lead with the key insight FIRST, then elaborate
+- Use specific numbers, dates, and facts — never be vague
+- If a question has multiple angles, acknowledge them briefly
+- End responses with a natural transition or actionable next step
 
 LANGUAGE:
 - CRITICAL: Detect the user's language and ALWAYS respond in that SAME language
@@ -1129,6 +1133,10 @@ export async function POST(req: NextRequest) {
     const { messages, image, permissions } = await req.json();
     const lastUserMsg = messages[messages.length - 1]?.content || "";
     const hasImage = !!image;
+    // Vision: auto-switch to pixtral for image analysis
+    if (hasImage) {
+      console.log("Image detected — routing to Pixtral Large");
+    }
     // Permission context from frontend
     const permContext = {
       gmailToken: permissions?.gmailToken || "",
@@ -1186,6 +1194,7 @@ export async function POST(req: NextRequest) {
                   messages: msgs as Parameters<typeof mistral.chat.complete>[0]["messages"],
                   ...(useTools ? { tools, toolChoice: "auto" as const } : {}),
                   temperature: 0.7,
+                  maxTokens: 4096,
                 });
               } catch (e: unknown) {
                 const err = e as { statusCode?: number };
@@ -1245,7 +1254,7 @@ export async function POST(req: NextRequest) {
           let assistantMessage = response!.choices?.[0]?.message;
 
           if (!assistantMessage || (!assistantMessage.content && (!assistantMessage.toolCalls || assistantMessage.toolCalls.length === 0))) {
-            controller.enqueue(sseEvent("content_delta", "I'm ready! Ask me anything — I can search the web, analyze data, write code, check weather, stocks, and much more. Just ask or say \"Hey MISSI\" to talk. 🎤"));
+            controller.enqueue(sseEvent("content_delta", "I'm ready! I can search the web in real-time, check weather and stocks, generate code, create reports, translate in 10 languages, and connect to Gmail, Calendar, GitHub and 10,000+ more tools. Just ask or say \"Hey MISSI\" 🎤"));
             controller.enqueue(sseEvent("done", { toolResults: [], documents: [], usage: { totalRounds: 0, toolCalls: 0 } }));
             controller.close();
             return;
@@ -1377,7 +1386,13 @@ export async function POST(req: NextRequest) {
               messages: [
                 {
                   role: "system",
-                  content: `Based on this AI response, generate exactly 3 natural follow-up questions or actions. Each 3-8 words. Match the response LANGUAGE. Vary between: a deeper question, a related topic, and an actionable next step. Return ONLY a JSON array. Example: ["How does this compare to X?","Show me the latest data","Create a summary report"]`,
+                  content: `Based on this AI response, generate 3 follow-up suggestions. Rules:
+1. Each suggestion is 3-8 words
+2. Match the SAME LANGUAGE as the response
+3. Make them genuinely useful and specific (not generic)
+4. Mix: one deeper question, one related action, one new angle
+5. Return ONLY a JSON array, no markdown
+Example: ["Vergleiche das mit GPT-4","Zeig mir den Trend","Erstelle einen Bericht"]`,
                 },
                 { role: "user", content: finalContent.slice(0, 500) },
               ],

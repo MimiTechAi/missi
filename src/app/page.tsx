@@ -1574,12 +1574,14 @@ export default function Home() {
           }`} title="Files" aria-label="Connect local files">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
         </button>
+        <div className="w-6 border-t border-zinc-200/60 my-1" />
         {/* Composio Integrations — 10,000+ tools */}
         {[
           { id: "gmail", icon: "📧", label: "Gmail" },
           { id: "googlecalendar", icon: "📅", label: "Calendar" },
           { id: "github", icon: "🐙", label: "GitHub" },
           { id: "slack", icon: "💬", label: "Slack" },
+          { id: "notion", icon: "📝", label: "Notion" },
         ].map(tk => (
           <button key={tk.id} onClick={() => connectToolkit(tk.id)}
             className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors text-[13px] ${
