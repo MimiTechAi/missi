@@ -40,3 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 competitive-analysis.md
+
+# Internal drafts
+linkedin-post-draft.md
+*.backup
