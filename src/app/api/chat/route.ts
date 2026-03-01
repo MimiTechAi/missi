@@ -620,7 +620,12 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
 
     case "run_code": {
       try {
-        const fn = new Function(`"use strict"; ${args.code}`);
+        // Security: block dangerous APIs in sandboxed execution
+        const blocked = ["fetch(", "require(", "import(", "process.", "XMLHttp", "WebSocket"];
+        for (const b of blocked) {
+          if (args.code.includes(b)) return `Security: "${b}" is not allowed in sandboxed code.`;
+        }
+        const fn = new Function(`"use strict"; const fetch=undefined,require=undefined,process=undefined; ${args.code}`);
         const result = fn();
         return `Output: ${JSON.stringify(result, null, 2) ?? "undefined"}`;
       } catch (e) {
