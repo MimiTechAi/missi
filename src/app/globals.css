@@ -228,3 +228,42 @@ button, [role="button"] {
     margin-right: -0.5rem;
   }
 }
+/* ── Smooth Content Appearance ── */
+@keyframes contentReveal {
+  from { opacity: 0; transform: translateY(4px); filter: blur(2px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+.animate-content-reveal {
+  animation: contentReveal 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Tool Card Loading ── */
+@keyframes toolPulse {
+  0%, 100% { border-color: rgba(251, 146, 60, 0.15); }
+  50% { border-color: rgba(251, 146, 60, 0.35); }
+}
+
+.tool-loading {
+  animation: toolPulse 1.5s ease-in-out infinite;
+}
+
+/* ── Voice Orb Container ── */
+.orb-container {
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Reduced Motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Print Styles ── */
+@media print {
+  .sidebar-icon, header, .input-container, canvas { display: none !important; }
+  .prose { max-width: 100%; }
+}
