@@ -17,29 +17,17 @@ async function composioExecute(toolName: string, userId: string, params: Record<
   
   console.log("[COMPOSIO] Executing:", toolName, "for user:", userId, "params:", JSON.stringify(params));
   
-  // V3 SDK: Use session + COMPOSIO_MULTI_EXECUTE_TOOL meta-tool
   try {
-    const session = await composio.create(userId);
-    
-    // Use the multi-execute tool to run the action
-    const result = await session.execute(toolName, params);
-    console.log("[COMPOSIO] Session Execute Result:", JSON.stringify(result).substring(0, 500));
+    const result = await composio.tools.execute(toolName, {
+      userId,
+      arguments: params,
+      dangerouslySkipVersionCheck: true,
+    });
+    console.log("[COMPOSIO] Result:", JSON.stringify(result).substring(0, 500));
     return result;
-  } catch (e1) {
-    console.error("[COMPOSIO] Session execute failed:", e1 instanceof Error ? e1.message : e1);
-    
-    // Fallback: Try tools.execute with the slug
-    try {
-      const result = await composio.tools.execute(toolName, {
-        userId,
-        arguments: params,
-      });
-      console.log("[COMPOSIO] Tools.execute Result:", JSON.stringify(result).substring(0, 500));
-      return result;
-    } catch (e2) {
-      console.error("[COMPOSIO] Tools.execute also failed:", e2 instanceof Error ? e2.message : e2);
-      return { error: e2 instanceof Error ? e2.message : "Composio execution failed", data: null };
-    }
+  } catch (e) {
+    console.error("[COMPOSIO] Execute error:", e instanceof Error ? e.message : e);
+    return { error: e instanceof Error ? e.message : "Composio execution failed", data: null };
   }
 }
 import { NextRequest } from "next/server";
