@@ -221,6 +221,7 @@ export default function Home() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [composioConnections, setComposioConnections] = useState<Record<string, boolean>>({});
   const [connectingToolkit, setConnectingToolkit] = useState<string | null>(null);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   
   // Auto-detect browser language on mount
   useEffect(() => {
@@ -1610,6 +1611,57 @@ export default function Home() {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
         </button>
       </aside>
+      {/* Mobile Sidebar Overlay */}
+      {showMobileSidebar && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowMobileSidebar(false)} />
+          <aside className="relative w-[240px] bg-white/95 backdrop-blur-xl shadow-2xl flex flex-col py-4 px-4 gap-1 animate-slide-in border-r border-zinc-200/50">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-600 flex items-center justify-center text-[11px] font-black text-white shadow-md">M</div>
+                <span className="text-[15px] font-bold text-zinc-800">MISSI</span>
+              </div>
+              <button onClick={() => setShowMobileSidebar(false)} className="w-7 h-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-600">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider mb-2 px-1">Integrations</p>
+            {[
+              { id: "gmail", icon: "📧", label: "Gmail", desc: "Read & search emails" },
+              { id: "googlecalendar", icon: "📅", label: "Calendar", desc: "View upcoming events" },
+              { id: "github", icon: "🐙", label: "GitHub", desc: "Issues, PRs, repos" },
+              { id: "slack", icon: "💬", label: "Slack", desc: "Messages & channels" },
+              { id: "notion", icon: "📝", label: "Notion", desc: "Pages & databases" },
+            ].map(tk => (
+              <button key={tk.id} onClick={() => { connectToolkit(tk.id); setShowMobileSidebar(false); }}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${
+                  composioConnections[tk.id] ? "bg-emerald-50 border border-emerald-200" :
+                  connectingToolkit === tk.id ? "bg-amber-50 border border-amber-200 animate-pulse" :
+                  "hover:bg-zinc-50 border border-transparent"
+                }`}>
+                <span className="text-[18px]">{tk.icon}</span>
+                <div>
+                  <p className="text-[13px] font-medium text-zinc-700">{composioConnections[tk.id] ? `✓ ${tk.label}` : tk.label}</p>
+                  <p className="text-[11px] text-zinc-400">{tk.desc}</p>
+                </div>
+              </button>
+            ))}
+            <div className="mt-4 border-t border-zinc-100 pt-3">
+              <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider mb-2 px-1">Settings</p>
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-[11px] text-zinc-500">Language:</span>
+                <select value={sttLang} onChange={(e) => setSttLang(e.target.value)}
+                  className="bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1 text-[12px] text-zinc-600 font-mono">
+                  {[["de-DE","Deutsch"],["en-US","English"],["fr-FR","Français"],["es-ES","Español"],["it-IT","Italiano"],["pt-BR","Português"],["ja-JP","日本語"],["ko-KR","한국어"],["zh-CN","中文"],["ru-RU","Русский"]].map(([v,l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
+
 
       {/* ── MAIN CONTENT ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -1617,8 +1669,12 @@ export default function Home() {
         {/* ── TOP BAR ── */}
         <header className="flex-shrink-0 h-12 border-b border-zinc-200/50 flex items-center justify-between px-6 glass-panel z-10">
           <div className="flex items-center gap-2.5">
+            {/* Mobile menu toggle */}
+            <button onClick={() => setShowMobileSidebar(!showMobileSidebar)} className="md:hidden w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-all -ml-1" aria-label="Menu">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
             <span className="text-[13px] font-semibold text-zinc-800">MISSI</span>
-            <span className="text-[11px] text-zinc-400 font-medium">
+            <span className="text-[11px] text-zinc-400/70 font-medium hidden sm:inline">
               4 Mistral Models · Voxtral STT · ElevenLabs TTS · 10,000+ Tools
             </span>
           </div>
