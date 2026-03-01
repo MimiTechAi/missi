@@ -4,6 +4,8 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --accent: #f97316;
+  --accent-light: #fff7ed;
 }
 
 @theme inline {
@@ -16,52 +18,16 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* Tool card slide-in animation */
+/* ── Core Animations ── */
 @keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Smooth streaming cursor */
-@keyframes cursorBlink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
-}
-
-/* Message entrance */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-in {
-  animation: fadeInUp 0.35s ease-out both;
-}
-
-/* MISSI Animations */
-@keyframes slideInUp {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
 }
 
 @keyframes fadeIn {
@@ -69,130 +35,202 @@ body {
   to { opacity: 1; }
 }
 
-.animate-slide-in {
-  animation: slideInUp 0.3s ease-out both;
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-out both;
+@keyframes softPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
+
+@keyframes toolSlideIn {
+  from { opacity: 0; transform: translateX(-10px) scale(0.97); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes gentleBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-slide-in { animation: slideInUp 0.35s ease-out both; }
+.animate-fade-in { animation: fadeIn 0.3s ease-out both; }
+.animate-scale-in { animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.animate-soft-pulse { animation: softPulse 2s ease-in-out infinite; }
+.animate-in { animation: slideInUp 0.35s ease-out both; }
 
 .skeleton-shimmer {
-  background: linear-gradient(90deg, #f4f4f5 25%, #e4e4e7 50%, #f4f4f5 75%);
+  background: linear-gradient(90deg, #f4f4f5 25%, #e8e8eb 37%, #f4f4f5 63%);
   background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
+  animation: shimmer 1.8s ease-in-out infinite;
 }
 
-/* Smooth scrollbar for chat */
-.overflow-y-auto::-webkit-scrollbar {
-  width: 6px;
-}
-.overflow-y-auto::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* ── Scrollbar ── */
+.overflow-y-auto::-webkit-scrollbar { width: 5px; }
+.overflow-y-auto::-webkit-scrollbar-track { background: transparent; }
 .overflow-y-auto::-webkit-scrollbar-thumb {
-  background: #d4d4d8;
-  border-radius: 3px;
+  background: #e4e4e7;
+  border-radius: 10px;
 }
-.overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  background: #a1a1aa;
-}
+.overflow-y-auto::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
 
-/* Prose code blocks enhancement */
+/* ── Typography ── */
 .prose pre {
   position: relative;
-  border: 1px solid #27272a;
+  border: 1px solid rgba(39, 39, 42, 0.8);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 .prose pre code {
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.7;
+}
+.prose code:not(pre code) {
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 5px;
 }
 
-/* Tool card stagger animation */
-@keyframes toolSlideIn {
-  from { opacity: 0; transform: translateX(-8px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-/* Pulse for active voice */
-@keyframes softPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-.animate-soft-pulse {
-  animation: softPulse 2s ease-in-out infinite;
-}
-
-/* Selection color */
+/* ── Selection ── */
 ::selection {
-  background: rgba(251, 146, 60, 0.2);
+  background: rgba(251, 146, 60, 0.18);
   color: inherit;
 }
 
-/* ── Mobile Optimizations ── */
-
-/* Prevent text selection on interactive elements */
+/* ── Interactive Elements ── */
 button, [role="button"] {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   user-select: none;
 }
 
-/* Smooth momentum scrolling on iOS */
+/* Suggestion card hover glow */
+.suggestion-card {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.suggestion-card:hover {
+  box-shadow: 0 2px 12px rgba(251, 146, 60, 0.12);
+  border-color: rgba(251, 146, 60, 0.3);
+}
+
+/* Tool execution card */
+.tool-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tool-card.running {
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.3), 0 2px 8px rgba(251, 191, 36, 0.1);
+}
+.tool-card.done {
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.3), 0 2px 8px rgba(16, 185, 129, 0.08);
+}
+
+/* Source card hover */
+.source-card {
+  transition: all 0.2s ease;
+}
+.source-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* Input glow on focus */
+.input-container {
+  transition: all 0.25s ease;
+}
+.input-container:focus-within {
+  border-color: rgba(251, 146, 60, 0.4);
+  box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* Sidebar icon hover */
+.sidebar-icon {
+  transition: all 0.15s ease;
+}
+.sidebar-icon:hover {
+  transform: scale(1.08);
+}
+.sidebar-icon:active {
+  transform: scale(0.95);
+}
+
+/* ── Scrolling ── */
 .overflow-y-auto {
   -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 }
 
-/* Safe area support for notch devices */
+/* ── Safe Area ── */
 @supports (padding: env(safe-area-inset-bottom)) {
-  .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 }
 
-/* Prevent iOS zoom on input focus (already handled by 16px font) */
+/* ── Mobile ── */
 @media (max-width: 639px) {
-  /* Tighter spacing on mobile */
   .prose {
     font-size: 14px;
     line-height: 1.7;
   }
-  
   .prose pre {
     font-size: 12px;
     border-radius: 12px;
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
   }
-  
   .prose h1, .prose h2, .prose h3 {
     margin-top: 1rem;
     margin-bottom: 0.5rem;
   }
 }
 
-/* PWA standalone mode adjustments */
+/* PWA standalone */
 @media (display-mode: standalone) {
-  body {
-    padding-top: env(safe-area-inset-top);
-  }
+  body { padding-top: env(safe-area-inset-top); }
 }
 
-/* Touch-friendly animations */
+/* Touch devices — always show action buttons */
 @media (hover: none) {
-  /* Disable hover effects on touch devices */
-  .group:hover .group-hover\:opacity-100 {
-    opacity: 1;
-  }
-  
-  /* Always show action buttons on mobile */
-  .opacity-0.group-hover\:opacity-100 {
-    opacity: 0.7;
-  }
+  .opacity-0.group-hover\:opacity-100 { opacity: 0.7; }
 }
 
 /* Landscape mobile */
 @media (max-height: 500px) and (orientation: landscape) {
-  .h-\[100dvh\] {
-    height: 100vh;
-  }
+  .h-\[100dvh\] { height: 100vh; }
+}
+
+/* ── Premium Details ── */
+
+/* Gradient text for special elements */
+.gradient-text {
+  background: linear-gradient(135deg, #f97316, #f59e0b, #ef4444);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 4s ease infinite;
+}
+
+/* Glass morphism effect */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Smooth transition for all interactive elements */
+* {
+  transition-property: color, background-color, border-color, box-shadow, opacity;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 0ms; /* Only apply when explicitly set */
 }
