@@ -1531,7 +1531,7 @@ export default function Home() {
   return (
     <ErrorBoundary>
     <div
-      className="h-[100dvh] bg-white text-zinc-900 flex overflow-hidden"
+      className="h-[100dvh] mesh-bg text-zinc-900 flex overflow-hidden"
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleImageUpload(f); }}
@@ -1548,7 +1548,7 @@ export default function Home() {
       )}
 
       {/* ── LEFT SIDEBAR ── */}
-      <aside className="hidden md:flex w-[52px] flex-shrink-0 bg-gradient-to-b from-zinc-50 to-zinc-100/50 border-r border-zinc-200/80 flex-col items-center py-3 gap-2">
+      <aside className="hidden md:flex w-[56px] flex-shrink-0 glass-panel border-r border-zinc-200/50 flex-col items-center py-4 gap-3 z-20">
         {/* Logo */}
         <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-600 flex items-center justify-center text-xs font-black text-white shadow-md shadow-orange-500/25 mb-1">
           M
@@ -1615,7 +1615,7 @@ export default function Home() {
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* ── TOP BAR ── */}
-        <header className="flex-shrink-0 h-11 border-b border-zinc-100/80 flex items-center justify-between px-5 bg-white/80 backdrop-blur-sm">
+        <header className="flex-shrink-0 h-12 border-b border-zinc-200/50 flex items-center justify-between px-6 glass-panel z-10">
           <div className="flex items-center gap-2.5">
             <span className="text-[13px] font-semibold text-zinc-800">MISSI</span>
             <span className="text-[11px] text-zinc-400 font-medium">
@@ -1751,7 +1751,7 @@ export default function Home() {
         ) : (
           /* CHAT: Full-width messages (like ChatGPT/Perplexity) */
           <div className="flex-1 overflow-y-auto bg-white">
-            <div className="max-w-[720px] mx-auto px-3 sm:px-5 py-4 sm:py-6 space-y-5 sm:space-y-6" aria-live="polite">
+            <div className="max-w-[720px] mx-auto px-3 sm:px-6 py-8 sm:py-10 space-y-8 sm:space-y-10" aria-live="polite">
               {messages.map((msg, i) => (
                 <div key={i} className="animate-slide-in">
                   {/* USER MESSAGE */}
@@ -1759,9 +1759,9 @@ export default function Home() {
                     <div className="flex justify-end mb-5">
                       <div className="max-w-[85%] sm:max-w-[75%] bg-gradient-to-br from-zinc-900 to-zinc-800 text-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-sm shadow-zinc-900/10">
                         {msg.fromVoice && (
-                          <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 mb-1.5">
+                          <div className="flex items-center gap-1.5 text-[10px] text-zinc-400/70 mb-1.5">
                             <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/></svg>
-                            Voxtral Voice
+                            🎙️ Voxtral
                           </div>
                         )}
                         <p className="text-[14px] text-zinc-100 leading-relaxed">{msg.content}</p>
@@ -1791,7 +1791,7 @@ export default function Home() {
                           </span>
                         )}
                         {msg.responseTime && (
-                          <span className="text-[11px] text-zinc-400">· {(msg.responseTime / 1000).toFixed(1).replace('.0', '')}s</span>
+                          <span className="text-[11px] text-zinc-300/80 tabular-nums">· {msg.responseTime >= 1000 ? `${(msg.responseTime/1000).toFixed(1)}s` : `${msg.responseTime}ms`}</span>
                         )}
                         {msg.toolCalls && msg.toolCalls.length > 0 && (
                           <span className="text-[11px] text-zinc-400">· {msg.toolCalls.length} tool{msg.toolCalls.length !== 1 ? "s" : ""}</span>
@@ -1820,11 +1820,49 @@ export default function Home() {
                           )}
                         </div>
 
-                        {/* Tool cards — clean, expandable (like Perplexity sources) */}
+
+                        {/* Interactive Tool Visuals */}
+                        {msg.toolCalls && msg.toolCalls.map((t, j) => {
+                          if (t.tool === "get_weather") {
+                            return (
+                              <div key={`viz-${j}`} className="mt-4 p-5 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 shadow-sm animate-scale-in">
+                                <div className="flex items-center gap-4">
+                                  <span className="text-4xl">🌤️</span>
+                                  <div>
+                                    <p className="text-sm font-semibold text-blue-900">{t.args.location}</p>
+                                    <div className="prose prose-sm prose-indigo">
+                                      <ReactMarkdown>{t.result}</ReactMarkdown>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+                          if (t.tool === "get_stock_price" || t.tool === "get_crypto_price") {
+                            const isStock = t.tool === "get_stock_price";
+                            return (
+                              <div key={`viz-${j}`} className="mt-4 p-5 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-lg animate-scale-in">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xl">{isStock ? "📈" : "🪙"}</span>
+                                    <p className="text-sm font-bold text-zinc-100 uppercase tracking-wider">{isStock ? t.args.symbol : t.args.coin}</p>
+                                  </div>
+                                  <span className="text-[10px] text-zinc-500 font-mono">Live Data</span>
+                                </div>
+                                <div className="prose prose-invert prose-sm">
+                                  <ReactMarkdown>{t.result}</ReactMarkdown>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })}
+
+                        {/* Tool cards — clean, expandable (like Perplexity sources) }
                         {msg.toolCalls && msg.toolCalls.length > 0 && (
                           <div className="mt-3 space-y-1.5">
                             {msg.toolCalls.map((t, j) => (
-                              <details key={j} className="group border border-zinc-200 rounded-xl overflow-hidden bg-zinc-50/50">
+                              <details key={j} className="group border border-zinc-200/60 rounded-2xl overflow-hidden glass-card tool-result-card">
                                 <summary className="flex items-center justify-between px-2.5 sm:px-3 py-2 cursor-pointer hover:bg-zinc-50 transition-colors list-none">
                                   <div className="flex items-center gap-2">
                                     <span className="text-emerald-500 text-[13px]">✓</span>
@@ -1870,7 +1908,7 @@ export default function Home() {
                                   <img src={src.favicon} alt="" className="w-4 h-4 rounded-sm flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                   <div className="min-w-0">
                                     <p className="text-[12px] text-zinc-700 group-hover:text-zinc-900 truncate font-medium leading-tight">{src.title}</p>
-                                    <p className="text-[10px] text-zinc-400 truncate">{src.domain}</p>
+                                    <p className="text-[10px] text-zinc-400 group-hover:text-orange-500 truncate transition-colors">{src.domain}</p>
                                   </div>
                                   <span className="text-zinc-300 group-hover:text-zinc-400 flex-shrink-0 ml-1">
                                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -2009,8 +2047,8 @@ export default function Home() {
               {isLoading && !latestContent && (
                 <div className="ml-8 py-2 animate-fade-in" role="status" aria-label="Loading response">
                   <div className="flex items-center gap-2.5 mb-3">
-                    <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-orange-500 via-orange-600 to-amber-600 flex items-center justify-center text-[9px] font-black text-white shadow-sm shadow-orange-500/20">M</div>
-                    <span className="text-[12px] font-semibold text-zinc-700">MISSI</span>
+                    <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-600 flex items-center justify-center text-[10px] font-black text-white shadow-md shadow-orange-500/20">M</div>
+                    <span className="text-[13px] font-semibold text-zinc-800">MISSI</span>
                     {thinkingStatus ? (
                       <span className="text-[12px] text-amber-500 font-medium animate-pulse">{thinkingStatus}</span>
                     ) : currentModel ? (
@@ -2037,17 +2075,17 @@ export default function Home() {
         )}
 
         {/* ── BOTTOM INPUT ── */}
-        <div className="flex-shrink-0 border-t border-zinc-100/80 bg-white/90 backdrop-blur-sm px-3 sm:px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="flex-shrink-0 px-4 sm:px-6 py-4 sm:py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <div className="max-w-[720px] mx-auto px-1 sm:px-0">
             {/* Voice transcript */}
             {voiceState === "listening" && input && (
-              <div className="mb-2.5 px-3 py-2 bg-red-50/70 border border-red-200 rounded-xl flex items-center gap-2.5 animate-fade-in backdrop-blur-sm">
-                <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse shrink-0" />
-                <p className="text-[14px] text-zinc-600 italic flex-1">&quot;{input}&quot;</p>
+              <div className="mb-2.5 px-3.5 py-2.5 bg-white border border-orange-200/60 rounded-xl flex items-center gap-2.5 animate-fade-in shadow-sm">
+                <span className="w-2 h-2 bg-orange-400 rounded-full animate-pulse shrink-0 voice-active" />
+                <p className="text-[14px] text-zinc-700 italic flex-1 leading-relaxed">&quot;{input}&quot;</p>
               </div>
             )}
 
-            <div className="input-container flex items-end gap-2.5 bg-zinc-50/80 border border-zinc-200 rounded-2xl px-4 py-2.5 transition-all duration-200">
+            <div className="input-container flex items-end gap-3 glass border border-zinc-200/60 rounded-[24px] px-5 py-3 shadow-xl shadow-zinc-200/30 transition-all duration-300">
               {/* Image upload */}
               <button onClick={() => fileInputRef.current?.click()}
                 className="w-9 h-9 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-all flex-shrink-0 touch-manipulation" title="Upload image (Pixtral)">
@@ -2102,9 +2140,9 @@ export default function Home() {
           {/* Backdrop */}
           <div className="flex-1 bg-black/20 backdrop-blur-sm" onClick={() => setArtifactPanel(null)} />
           {/* Panel */}
-          <div className="w-[560px] max-w-[90vw] bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+          <div className="w-[640px] max-w-[95vw] bg-white shadow-2xl flex flex-col artifact-enter border-l border-zinc-200">
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-200 bg-zinc-50">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 bg-zinc-50/50 backdrop-blur-md sticky top-0 z-10">
               <div className="flex items-center gap-2.5">
                 <span className="text-lg">✨</span>
                 <div>
@@ -2130,7 +2168,9 @@ export default function Home() {
             {/* Content */}
             <div className="flex-1 overflow-y-auto px-6 py-5">
               <div className="prose prose-zinc prose-sm max-w-none text-[14px] leading-[1.8] prose-headings:text-zinc-800 prose-headings:font-semibold prose-code:text-orange-600 prose-code:bg-orange-50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-zinc-900 prose-pre:text-zinc-100 prose-pre:rounded-xl prose-pre:text-[13px] prose-a:text-orange-600">
-                <ReactMarkdown>{artifactPanel.content}</ReactMarkdown>
+                <div className="max-w-2xl mx-auto w-full">
+                  <ReactMarkdown>{artifactPanel.content}</ReactMarkdown>
+                </div>
               </div>
             </div>
           </div>

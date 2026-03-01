@@ -493,6 +493,31 @@ const tools = [
 // ============================================================
 // TOOL EXECUTION ENGINE
 // ============================================================
+
+// Helper to execute Composio tools directly
+async function composioExecute(toolName: string, params: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+  if (!process.env.COMPOSIO_API_KEY) return null;
+  try {
+    const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.COMPOSIO_API_KEY,
+      },
+      body: JSON.stringify({
+        tool_name: toolName,
+        input: params,
+        user_id: "missi_demo_user",
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 async function executeTool(name: string, args: Record<string, string>): Promise<string> {
   switch (name) {
     case "web_search": {
@@ -939,8 +964,34 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
     }
 
     case "get_calendar": {
-      // Calendar is a permission-gated tool
-      return "Calendar not connected. Please connect your Google account first.";
+      if (!process.env.COMPOSIO_API_KEY) return "Calendar not configured.";
+      try {
+        const now = new Date();
+        const endDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": process.env.COMPOSIO_API_KEY || "" },
+          body: JSON.stringify({ tool_name: "GOOGLECALENDAR_LIST_EVENTS", user_id: "missi_demo_user",
+            input: {
+              time_min: now.toISOString(),
+              time_max: endDate.toISOString(),
+              max_results: 10,
+            },
+          }),
+        });
+        const data = await res.json();
+        if (data?.data) {
+          const events = Array.isArray(data.data) ? data.data : [];
+          if (!events.length) return "📅 No upcoming events found in the next 7 days.";
+          return events.map((e: Record<string, string>) => {
+            const start = e.start ? new Date(e.start).toLocaleString("de-DE") : "";
+            return `📅 **${e.summary || e.title || "Untitled"}**\n   🕐 ${start}${e.location ? `\n   📍 ${e.location}` : ""}`;
+          }).join("\n\n");
+        }
+        return "📅 No events found. Connect Google Calendar via the sidebar 📅 icon first.";
+      } catch {
+        return "Calendar lookup failed. Click 📅 in the sidebar to connect.";
+      }
     }
 
     default:
@@ -952,71 +1003,101 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
 async function executePermissionTool(name: string, args: Record<string, string>, context: Record<string, unknown>): Promise<string> {
   switch (name) {
     case "search_gmail": {
-      const token = context.gmailToken as string;
-      if (!token) return "Gmail not connected. Please click 'Connect Gmail' to grant access first.";
+      // Use Composio for Gmail integration
+      if (!process.env.COMPOSIO_API_KEY) return "Gmail not configured. Set COMPOSIO_API_KEY to enable.";
       try {
-        const res = await fetch(`${context.baseUrl}/api/auth/gmail`, {
+        const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "search", token, query: args.query }),
+          headers: { "Content-Type": "application/json", "x-api-key": process.env.COMPOSIO_API_KEY || "" },
+          body: JSON.stringify({ tool_name: "GMAIL_SEARCH_EMAILS", user_id: "missi_demo_user",
+            input: { query: args.query, max_results: args.limit || 5 },
+          }),
         });
         const data = await res.json();
-        if (!data.results?.length) return `No emails found for query: "${args.query}"`;
-        return data.results.map((m: { subject: string; from: string; date: string; snippet: string; id: string }) =>
-          `📧 ${m.subject}\n   From: ${m.from}\n   Date: ${m.date}\n   Preview: ${m.snippet}\n   [ID: ${m.id}]`
-        ).join("\n\n");
+        if (data?.data) {
+          const emails = data.data;
+          if (!emails.length) return `No emails found for: "${args.query}"`;
+          return emails.map((m: Record<string, string>) =>
+            `📧 **${m.subject || "No subject"}**\n   From: ${m.from || m.sender || "Unknown"}\n   Date: ${m.date || ""}\n   Preview: ${(m.snippet || m.body || "").slice(0, 150)}`
+          ).join("\n\n");
+        }
+        return `No emails found for: "${args.query}". Make sure Gmail is connected via the sidebar.`;
       } catch {
-        return "Failed to search Gmail. Token may have expired — please reconnect.";
+        return "Gmail search failed. Please click the 📧 icon in the sidebar to connect Gmail first.";
       }
     }
 
     case "read_gmail": {
-      const token = context.gmailToken as string;
-      if (!token) return "Gmail not connected. Please click 'Connect Gmail' to grant access first.";
+      if (!process.env.COMPOSIO_API_KEY) return "Gmail not configured. Set COMPOSIO_API_KEY to enable.";
       try {
-        const res = await fetch(`${context.baseUrl}/api/auth/gmail`, {
+        const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "read", token, messageId: args.messageId }),
+          headers: { "Content-Type": "application/json", "x-api-key": process.env.COMPOSIO_API_KEY || "" },
+          body: JSON.stringify({ tool_name: "GMAIL_GET_EMAIL", user_id: "missi_demo_user",
+            input: { message_id: args.id || args.messageId },
+          }),
         });
         const data = await res.json();
-        return `📧 ${data.subject}\nFrom: ${data.from}\nDate: ${data.date}\n\n${data.body}`;
+        if (data?.data) {
+          const email = data.data;
+          return `📧 **${email.subject || "No subject"}**\nFrom: ${email.from || "Unknown"}\nDate: ${email.date || ""}\n\n${(email.body || email.snippet || "No content").slice(0, 3000)}`;
+        }
+        return "Could not read email. Make sure Gmail is connected via the sidebar.";
       } catch {
-        return "Failed to read email.";
+        return "Gmail read failed. Please connect Gmail via the 📧 icon in the sidebar.";
       }
     }
 
     case "search_files": {
-      const fileIndex = context.fileIndex as string;
-      if (!fileIndex) return "No folder connected. Please click '📂 Connect Folder' to grant file access first.";
-      const query = args.query.toLowerCase();
-      const files = fileIndex.split("\n").filter(f => f.toLowerCase().includes(query));
-      if (files.length === 0) return `No files matching "${args.query}" found in the connected folder.`;
-      return `Found ${files.length} matching files:\n${files.slice(0, 20).join("\n")}`;
-    }
-
-    case "get_calendar": {
-      const token = context.gmailToken as string;
-      if (!token) return "Google account not connected. Please click '📧 Gmail' to grant access first.";
+      if (!process.env.COMPOSIO_API_KEY) return "File search requires Composio. Set COMPOSIO_API_KEY.";
       try {
-        const days = parseInt(args.days || "1") || 1;
-        const now = new Date();
-        const end = new Date(now.getTime() + days * 86400000);
-        const res = await fetch(
-          `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now.toISOString()}&timeMax=${end.toISOString()}&singleEvents=true&orderBy=startTime&maxResults=10`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": process.env.COMPOSIO_API_KEY || "" },
+          body: JSON.stringify({ tool_name: "GOOGLEDRIVE_SEARCH_FILES", user_id: "missi_demo_user",
+            input: { query: args.query, max_results: 10 },
+          }),
+        });
         const data = await res.json();
-        if (!data.items?.length) return `No events in the next ${days} day(s).`;
-        return data.items.map((e: { summary?: string; start?: { dateTime?: string; date?: string }; end?: { dateTime?: string; date?: string }; location?: string }) => {
-          const start = e.start?.dateTime ? new Date(e.start.dateTime).toLocaleString() : e.start?.date || "";
-          return `📅 ${e.summary || "No title"}\n   ${start}${e.location ? `\n   📍 ${e.location}` : ""}`;
-        }).join("\n\n");
+        if (data?.data?.length) {
+          return data.data.map((f: Record<string, string>) =>
+            `🗂️ **${f.name || f.title}** (${f.mimeType || "file"})\n   📎 ${f.webViewLink || "No link"}`
+          ).join("\n\n");
+        }
+        return `No files found for "${args.query}". Connect Google Drive via sidebar.`;
       } catch {
-        return "Failed to fetch calendar. Token may have expired.";
+        return "File search failed. Connect Google Drive via sidebar first.";
       }
     }
 
+    case "get_calendar": {
+      if (!process.env.COMPOSIO_API_KEY) return "Calendar not configured.";
+      try {
+        const now = new Date();
+        const endDate = new Date(now.getTime() + (parseInt(args.days || "7") * 24 * 60 * 60 * 1000));
+        const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": process.env.COMPOSIO_API_KEY || "" },
+          body: JSON.stringify({ tool_name: "GOOGLECALENDAR_LIST_EVENTS", user_id: "missi_demo_user",
+            input: { time_min: now.toISOString(), time_max: endDate.toISOString(), max_results: 15 },
+          }),
+        });
+        const data = await res.json();
+        if (data?.data) {
+          const events = Array.isArray(data.data) ? data.data : [];
+          if (!events.length) return "📅 No upcoming events found.";
+          return events.map((e: Record<string, string>) => {
+            const start = e.start ? new Date(e.start).toLocaleString("de-DE") : "";
+            return `📅 **${e.summary || e.title || "Untitled"}**\n   🕐 ${start}${e.location ? `\n   📍 ${e.location}` : ""}`;
+          }).join("\n\n");
+        }
+        return "📅 Calendar not connected. Click 📅 in sidebar.";
+      } catch {
+        return "Calendar lookup failed. Connect via sidebar first.";
+      }
+    }
+
+    
     case "get_location": {
       const loc = context.location as string;
       if (!loc) return "Location not available. The user needs to grant location permission in their browser.";
