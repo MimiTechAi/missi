@@ -11,6 +11,7 @@ const REDIRECT_URI = process.env.NEXTAUTH_URL
 const SCOPES = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.readonly";
 
 // GET = start OAuth flow → redirect to Google consent
+// FIX #6: Error handling when GOOGLE_CLIENT_ID missing
 export async function GET() {
   if (!GOOGLE_CLIENT_ID) {
     return NextResponse.json({ error: "Gmail not configured. Set GOOGLE_CLIENT_ID in .env.local" }, { status: 501 });

@@ -71,10 +71,12 @@ function loadMessages(): Message[] {
 }
 function saveMessages(msgs: Message[]) {
   // Don't persist displayedContent — it's transient
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs.slice(-50).map(m => {
+  const MAX_PERSISTED = 50;
+  const toSave = msgs.slice(-MAX_PERSISTED).map(m => {
     const { displayedContent, ...rest } = m;
     return rest;
-  }))); } catch {}
+  });
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave)); } catch {}
 }
 
 // ============================================================
@@ -222,6 +224,7 @@ export default function Home() {
   const [composioConnections, setComposioConnections] = useState<Record<string, boolean>>({});
   const [connectingToolkit, setConnectingToolkit] = useState<string | null>(null);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [wakeWordEnabled, setWakeWordEnabled] = useState(false);
   
   // Auto-detect browser language on mount
   useEffect(() => {
@@ -264,14 +267,24 @@ export default function Home() {
   const ttsQueueRef = useRef<string[]>([]);
   const ttsPlayingRef = useRef(false);
   const ttsBufferRef = useRef("");
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Load messages on mount + register service worker
+  const [isOffline, setIsOffline] = useState(false);
+  
+  // Load messages on mount + register service worker + online/offline detection
   useEffect(() => {
     setMessages(loadMessages());
     // PWA service worker
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
+    // FIX #17: Offline detection
+    const goOffline = () => setIsOffline(true);
+    const goOnline = () => setIsOffline(false);
+    window.addEventListener("offline", goOffline);
+    window.addEventListener("online", goOnline);
+    setIsOffline(!navigator.onLine);
+    return () => { window.removeEventListener("offline", goOffline); window.removeEventListener("online", goOnline); };
   }, []);
   useEffect(() => { if (messages.length > 0) saveMessages(messages); }, [messages]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, latestContent]);
@@ -580,7 +593,9 @@ export default function Home() {
     ttsBufferRef.current = "";
 
     // Filler audio — speak a brief acknowledgment while LLM is thinking (VOICE ONLY)
+    // Only play filler if API takes > 1.5s (FIX #14 — no filler for quick answers)
     let fillerPromise: Promise<void> = Promise.resolve();
+    let fillerTimeout: ReturnType<typeof setTimeout> | null = null;
     if (fromVoice) {
     const fillers: Record<string, string[]> = {
       "de": ["Moment...", "Einen Augenblick...", "Lass mich nachsehen..."],
@@ -592,8 +607,9 @@ export default function Home() {
     const fillerList = fillers[langKey] || fillers["en"];
     const filler = fillerList[Math.floor(Math.random() * fillerList.length)];
     
-    // Fire filler TTS (don't await — let it play while API call runs)
-    fillerPromise = (async () => {
+    // Fire filler TTS only after 1.5s delay — skip for fast responses (FIX #14)
+    fillerPromise = new Promise<void>((resolveFiller) => {
+      fillerTimeout = setTimeout(async () => {
       try {
         const res = await fetch("/api/tts", {
           method: "POST",
@@ -612,16 +628,23 @@ export default function Home() {
           console.warn("ElevenLabs unavailable for filler");
         }
       } catch {}
-    })();
+      resolveFiller();
+      }, 1500); // 1.5s delay before filler
+    });
     }
 
     try {
-      const chatMessages = [...messages, userMessage].map((m) => ({ role: m.role, content: m.content }));
+      // Keep last 16 messages for context window management (prevents overflow + saves cost)
+      const recentMessages = [...messages, userMessage].slice(-16);
+      const chatMessages = recentMessages.map((m) => ({ role: m.role, content: m.content }));
       
       // API call runs IN PARALLEL with filler audio
       const apiStart = Date.now();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
       const res = await fetch("/api/chat", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: chatMessages,
@@ -695,6 +718,10 @@ export default function Home() {
                   setShowBrowsingPanel(true);
                 } catch {}
               }
+              // FIX #11: Request location lazily when location-related tools are used
+              if (eventData.tool === "get_weather" || eventData.tool === "get_location") {
+                requestLocation();
+              }
               if (eventData.tool === "web_search") {
                 setBrowsingActivities(prev => [...prev, { url: `search://${eventData.args.query}`, domain: "DuckDuckGo", status: "loading" }]);
                 setShowBrowsingPanel(true);
@@ -752,6 +779,25 @@ export default function Home() {
                   const reminderData = JSON.parse(eventData.result);
                   if (reminderData._type === "reminder") {
                     scheduleReminder(reminderData.message, 60000); // Default 1 min
+                  }
+                } catch {}
+              }
+              // FIX #2: Auto-detect expired Gmail token from tool results
+              if ((eventData.tool === "search_gmail" || eventData.tool === "read_gmail") && 
+                  eventData.result?.includes("expired")) {
+                setPermissions(prev => ({ ...prev, gmailToken: null }));
+                setMessages(prev => [...prev, {
+                  role: "assistant" as const,
+                  content: "⚠️ **Gmail session expired.** Click the 📧 icon in the sidebar to reconnect.",
+                  timestamp: Date.now(),
+                }]);
+              }
+              // FIX #20: Open artifact panel for documents
+              if (eventData.tool === "create_document") {
+                try {
+                  const docData = JSON.parse(eventData.result);
+                  if (docData._type === "document") {
+                    setArtifactPanel({ title: docData.title, content: docData.content, type: docData.docType || "document" });
                   }
                 } catch {}
               }
@@ -814,6 +860,7 @@ export default function Home() {
 
       // Stop filler audio (voice only) — MUST complete before response TTS starts
       if (fromVoice) {
+        if (fillerTimeout) clearTimeout(fillerTimeout); // Cancel filler if response was fast
         await fillerPromise;
         // Aggressively stop ALL audio before response plays
         if (audioRef.current && !audioRef.current.paused) {
@@ -875,7 +922,17 @@ export default function Home() {
       }
       setActiveTools([]);
       ttsBufferRef.current = "";
-    } catch {
+      abortControllerRef.current = null;
+    } catch (err) {
+      abortControllerRef.current = null;
+      if (err instanceof DOMException && err.name === "AbortError") {
+        // User cancelled — clean exit
+        setVoiceState("idle");
+        setIsLoading(false);
+        setThinkingStatus("");
+        setActiveTools([]);
+        return;
+      }
       setMessages((prev) => [...prev, { role: "assistant", content: "Connection lost. Please try again.", timestamp: Date.now() }]);
       setVoiceState("idle");
     } finally { setIsLoading(false); setThinkingStatus(""); setActiveTools([]); }
@@ -944,8 +1001,9 @@ export default function Home() {
             return;
           }
 
-          // Show "transcribing" state
-          setInput("🎙️ Transcribing with Voxtral...");
+          // Show "transcribing" state — in status bar, not input field (FIX #15)
+          setInput("");
+          setThinkingStatus("🎙️ Transcribing with Voxtral...");
           setVoiceState("thinking");
 
           const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
@@ -1163,6 +1221,26 @@ export default function Home() {
     a.click(); URL.revokeObjectURL(url);
   };
 
+  const stopGeneration = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    if (audioRef.current && !audioRef.current.paused) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    speechSynthesis.cancel();
+    ttsQueueRef.current = [];
+    ttsPlayingRef.current = false;
+    ttsBufferRef.current = "";
+    setIsLoading(false);
+    setVoiceState("idle");
+    setThinkingStatus("");
+    setActiveTools([]);
+    setAudioLevel(0);
+  }, []);
+
   const clearConversation = () => {
     setMessages([]); setInput(""); localStorage.removeItem(STORAGE_KEY);
     setShowChat(false); setCurrentModel(null); setCurrentPlan(null); setLatestContent("");
@@ -1175,7 +1253,9 @@ export default function Home() {
     const handleGlobalKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        clearConversation();
+        if (messages.length === 0 || confirm("Clear conversation? This cannot be undone.")) {
+          clearConversation();
+        }
       }
     };
     window.addEventListener("keydown", handleGlobalKey);
@@ -1306,8 +1386,8 @@ export default function Home() {
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
-      gain.gain.value = 0.08;
-      if (type === "activate") { osc.frequency.value = 880; gain.gain.value = 0.06; }
+      gain.gain.value = 0.15;
+      if (type === "activate") { osc.frequency.value = 880; gain.gain.value = 0.12; }
       else if (type === "success") { osc.frequency.value = 660; }
       else { osc.frequency.value = 220; }
       osc.start();
@@ -1315,18 +1395,24 @@ export default function Home() {
     } catch {}
   }, []);
 
-  // ── Geolocation ──
+  // ── Geolocation (lazy — only when needed) ──
   const [userLocation, setUserLocation] = useState<string>("");
-  useEffect(() => {
+  const locationRequestedRef = useRef(false);
+  const requestLocation = useCallback(() => {
+    if (locationRequestedRef.current || userLocation) return;
+    locationRequestedRef.current = true;
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
           const { latitude, longitude } = pos.coords;
+          // Reverse geocode via Nominatim (FIX #13)
           try {
-            const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=&count=1&latitude=${latitude}&longitude=${longitude}`);
-            const locStr = `Latitude: ${latitude.toFixed(4)}, Longitude: ${longitude.toFixed(4)}`;
+            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=10`);
+            const geoData = await geoRes.json();
+            const city = geoData.address?.city || geoData.address?.town || geoData.address?.village || "";
+            const country = geoData.address?.country || "";
+            const locStr = city ? `${city}, ${country} (${latitude.toFixed(4)}, ${longitude.toFixed(4)})` : `Latitude: ${latitude.toFixed(4)}, Longitude: ${longitude.toFixed(4)}`;
             setUserLocation(locStr);
-            // Reverse geocode not available via open-meteo, but coords are enough
           } catch {
             setUserLocation(`Lat ${latitude.toFixed(4)}, Lon ${longitude.toFixed(4)}`);
           }
@@ -1334,7 +1420,7 @@ export default function Home() {
         () => {} // permission denied — that's ok
       );
     }
-  }, []);
+  }, [userLocation]);
 
   // ── Voice Barge-In Detection (GPT-4o style) ──
   // While MISSI is speaking, monitor mic for user voice.
@@ -1435,7 +1521,7 @@ export default function Home() {
   useEffect(() => { activateRef.current = activate; }, [activate]);
   
   useEffect(() => {
-    if (continuousMode || voiceState !== "idle") return; // Already active
+    if (!wakeWordEnabled || continuousMode || voiceState !== "idle") return; // Wake word disabled or already active
     if (typeof window === "undefined" || !("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) return;
     
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1465,18 +1551,16 @@ export default function Home() {
     };
     try { wakeRecog.start(); } catch {}
     return () => { try { wakeRecog.stop(); } catch {} };
-  }, [continuousMode, voiceState, playSound]);
+  }, [wakeWordEnabled, continuousMode, voiceState, playSound]);
 
-  // ── Notification Permission + Reminder Scheduling ──
-  useEffect(() => {
+  // ── Notification Permission (lazy — only when reminder is set) + Scheduling ──
+  const scheduleReminder = useCallback((message: string, delayMs: number) => {
+    // Request permission only when actually needed (FIX #12)
     if (typeof Notification !== "undefined" && Notification.permission === "default") {
       Notification.requestPermission();
     }
-  }, []);
-
-  const scheduleReminder = useCallback((message: string, delayMs: number) => {
     const reminderTimeout = setTimeout(() => {
-      if (Notification.permission === "granted") {
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
         new Notification("🔔 MISSI Reminder", { body: message, icon: "/favicon.ico" });
       }
       playSound("success");
@@ -1527,6 +1611,18 @@ export default function Home() {
     }
   };
 
+  // FIX #22: Copy code to clipboard
+  const copyToClipboard = useCallback((text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      // Brief visual feedback handled by the button itself
+    }).catch(() => {});
+  }, []);
+
+  // FIX #25: Copy full response
+  const copyResponse = useCallback((content: string) => {
+    navigator.clipboard.writeText(content).then(() => {}).catch(() => {});
+  }, []);
+
   const modelColors: Record<string, string> = {
     "mistral-small-latest": "text-emerald-400",
     "mistral-large-latest": "text-violet-400",
@@ -1558,6 +1654,38 @@ export default function Home() {
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleImageUpload(f); }}
     >
+      {/* FIX #20: Artifact Panel — document viewer */}
+      {artifactPanel && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setArtifactPanel(null)} />
+          <div className="ml-auto relative w-full max-w-2xl bg-white shadow-2xl flex flex-col artifact-enter">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200">
+              <div>
+                <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">{artifactPanel.type}</p>
+                <h3 className="text-lg font-semibold text-zinc-800">{artifactPanel.title}</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { const blob = new Blob([`# ${artifactPanel.title}\n\n${artifactPanel.content}`], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `${artifactPanel.title.replace(/\s+/g, "-").toLowerCase()}.md`; a.click(); URL.revokeObjectURL(url); }}
+                  className="px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-600 text-[12px] font-medium transition-colors flex items-center gap-1.5">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Download
+                </button>
+                <button onClick={() => copyToClipboard(artifactPanel.content)}
+                  className="px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-600 text-[12px] font-medium transition-colors">
+                  Copy
+                </button>
+                <button onClick={() => setArtifactPanel(null)} className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-6 prose prose-zinc max-w-none">
+              <ReactMarkdown>{artifactPanel.content}</ReactMarkdown>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Drop overlay */}
       {dragOver && (
         <div className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm flex items-center justify-center border-2 border-dashed border-blue-400 m-4 rounded-2xl">
@@ -1621,6 +1749,12 @@ export default function Home() {
         <div className="flex-1" />
 
         {/* Language & clear */}
+        <button onClick={() => setWakeWordEnabled(p => !p)}
+          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 text-[11px] sidebar-icon ${
+            wakeWordEnabled ? "bg-orange-50 text-orange-500 ring-1 ring-orange-200" : "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100"
+          }`} title={`Wake word "Hey Missi": ${wakeWordEnabled ? "ON" : "OFF"}`} aria-label="Toggle wake word detection">
+          👋
+        </button>
         <select value={sttLang} onChange={(e) => setSttLang(e.target.value)}
           className="w-8 h-7 bg-transparent text-zinc-400 text-[9px] cursor-pointer hover:text-zinc-600 text-center rounded-lg hover:bg-zinc-100 transition-colors border-0 outline-none appearance-none font-mono">
           {[["de-DE","DE"],["en-US","EN"],["fr-FR","FR"],["es-ES","ES"],["it-IT","IT"],["pt-BR","PT"],["ja-JP","JA"],["ko-KR","KO"],["zh-CN","ZH"],["ru-RU","RU"]].map(([v,l]) => (
@@ -1646,6 +1780,16 @@ export default function Home() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
+            <button onClick={() => { connectFolder(); setShowMobileSidebar(false); }}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left mb-2 ${
+                permissions.folderFiles && permissions.folderFiles.length > 0 ? "bg-emerald-50 border border-emerald-200" : "hover:bg-zinc-50 border border-transparent"
+              }`}>
+              <span className="text-[18px]">📁</span>
+              <div>
+                <p className="text-[13px] font-medium text-zinc-700">{permissions.folderFiles ? "✓ Local Files" : "Local Files"}</p>
+                <p className="text-[11px] text-zinc-400">Connect a folder</p>
+              </div>
+            </button>
             <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider mb-2 px-1">Integrations</p>
             {[
               { id: "gmail", icon: "📧", label: "Gmail", desc: "Read & search emails" },
@@ -1695,6 +1839,7 @@ export default function Home() {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
             <span className="text-[13px] font-semibold text-zinc-800">MISSI</span>
+            {isOffline && <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-500 font-medium">Offline</span>}
             <span className="text-[11px] text-zinc-400/70 font-medium hidden sm:inline">
               4 Mistral Models · Voxtral STT · ElevenLabs TTS · 10,000+ Tools
             </span>
@@ -1747,7 +1892,10 @@ export default function Home() {
               What can I help with?
             </h2>
             <p className="mt-2 text-[13px] text-zinc-400 text-center max-w-xs">
-              Voice-first AI — speak naturally or type anything
+              Voice-first AI — speak naturally, type, or drop an image
+            </p>
+            <p className="mt-1 text-[11px] text-zinc-300 text-center">
+              <kbd className="px-1.5 py-0.5 bg-zinc-100 rounded text-[10px] border border-zinc-200">Space</kbd> voice · <kbd className="px-1.5 py-0.5 bg-zinc-100 rounded text-[10px] border border-zinc-200">Esc</kbd> stop · <kbd className="px-1.5 py-0.5 bg-zinc-100 rounded text-[10px] border border-zinc-200">⌘K</kbd> clear
             </p>
 
             {voiceState === "idle" && (
@@ -1829,6 +1977,21 @@ export default function Home() {
           /* CHAT: Full-width messages (like ChatGPT/Perplexity) */
           <div className="flex-1 overflow-y-auto bg-white">
             <div className="max-w-[720px] mx-auto px-3 sm:px-6 py-8 sm:py-10 space-y-8 sm:space-y-10" aria-live="polite">
+              {/* FIX #21: Typing indicator when loading but no streaming message yet */}
+              {isLoading && messages[messages.length - 1]?.role === "user" && (
+                <div className="animate-slide-in">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-600 flex items-center justify-center text-[10px] font-black text-white shadow-md shadow-orange-500/20">M</div>
+                    <span className="text-[13px] font-semibold text-zinc-800">MISSI</span>
+                    {thinkingStatus && <span className="text-[11px] text-amber-500 animate-pulse">{thinkingStatus}</span>}
+                  </div>
+                  <div className="ml-8 flex items-center gap-1.5">
+                    <span className="thinking-dot w-2 h-2 rounded-full bg-orange-400" />
+                    <span className="thinking-dot w-2 h-2 rounded-full bg-orange-400" />
+                    <span className="thinking-dot w-2 h-2 rounded-full bg-orange-400" />
+                  </div>
+                </div>
+              )}
               {messages.map((msg, i) => (
                 <div key={i} className="animate-slide-in">
                   {/* USER MESSAGE */}
@@ -1896,6 +2059,19 @@ export default function Home() {
                             <span className="inline-block w-[3px] h-[18px] bg-orange-400 ml-0.5 animate-pulse align-text-bottom rounded-full" />
                           )}
                         </div>
+                        {/* FIX #22 + #25: Action buttons — Copy, Listen */}
+                        {!isLoading && msg.content && msg.content.length > 10 && (
+                          <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <button onClick={() => copyResponse(msg.content)} className="px-2 py-1 rounded-lg text-[11px] text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-all flex items-center gap-1" title="Copy response">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                              Copy
+                            </button>
+                            <button onClick={() => speakText(msg.content, i)} className="px-2 py-1 rounded-lg text-[11px] text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-all flex items-center gap-1" title="Listen">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                              Listen
+                            </button>
+                          </div>
+                        )}
 
 
                         {/* Interactive Tool Visuals */}
@@ -2009,7 +2185,7 @@ export default function Home() {
                                   </div>
                                   <span className="text-[10px] text-zinc-400 font-mono shrink-0 ml-2">{t.duration}ms</span>
                                 </summary>
-                                <div className="px-3 py-2 border-t border-zinc-200 text-[11px] text-zinc-500 font-mono max-h-36 overflow-y-auto bg-white">
+                                <div className="px-3 py-2 border-t border-zinc-200 text-[11px] text-zinc-600 max-h-36 overflow-y-auto bg-white prose prose-sm prose-zinc">
                                   {t.result?.slice(0, 800)}
                                 </div>
                               </details>
@@ -2224,6 +2400,13 @@ export default function Home() {
               </div>
             )}
 
+            {/* Stop button during generation (FIX #3) */}
+            {isLoading && (
+              <button onClick={stopGeneration} className="mb-2 mx-auto px-4 py-1.5 rounded-full bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 text-zinc-600 text-[12px] font-medium transition-all flex items-center gap-1.5 shadow-sm">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                Stop generating
+              </button>
+            )}
             <div className="input-container flex items-end gap-3 glass border border-zinc-200/60 rounded-[24px] px-5 py-3 shadow-xl shadow-zinc-200/30 transition-all duration-300">
               {/* Image upload */}
               <button onClick={() => fileInputRef.current?.click()}
