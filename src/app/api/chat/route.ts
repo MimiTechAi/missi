@@ -609,38 +609,45 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
           store: false,
         });
 
-        // Extract text and references from the response (handle multiple response formats)
+        // Extract text and references — handle all response formats robustly
         const results: string[] = [];
         const refs: string[] = [];
         const entries = searchResponse.outputs || [];
-        for (const entry of entries) {
-          // Handle message.output entries
-          if (entry.type === "message.output" && Array.isArray(entry.content)) {
-            for (const chunk of entry.content) {
-              if (chunk.type === "text" && chunk.text) {
-                results.push(chunk.text);
-              } else if (chunk.type === "tool_reference" && chunk.url) {
-                refs.push(`🔗 [${chunk.title || chunk.url}](${chunk.url})`);
-              }
+        
+        function extractText(obj: unknown): void {
+          if (!obj) return;
+          if (typeof obj === "string") { results.push(obj); return; }
+          if (Array.isArray(obj)) { obj.forEach(extractText); return; }
+          if (typeof obj === "object") {
+            const o = obj as Record<string, unknown>;
+            // Text content
+            if (typeof o.text === "string" && o.text.length > 2) results.push(o.text);
+            // Tool references (citations)
+            if (typeof o.url === "string" && o.type === "tool_reference") {
+              refs.push(`🔗 [${o.title || o.url}](${o.url})`);
             }
-          }
-          // Handle direct text content
-          if (typeof entry === "object" && "text" in entry && typeof entry.text === "string") {
-            results.push(entry.text);
+            // Recurse into content arrays
+            if (Array.isArray(o.content)) extractText(o.content);
+            if (Array.isArray(o.outputs)) extractText(o.outputs);
           }
         }
         
-        // Also check for top-level response content
+        extractText(entries);
+        
+        // Also check top-level response
         const resp = searchResponse as Record<string, unknown>;
-        if (typeof resp.content === "string" && resp.content.length > 10) {
-          results.push(resp.content);
-        }
+        if (typeof resp.content === "string" && resp.content.length > 10) results.push(resp.content);
+        if (typeof resp.text === "string" && resp.text.length > 10) results.push(resp.text);
 
         if (results.length > 0) {
           const combined = results.join("\n");
           const refsStr = refs.length > 0 ? `\n\n**Sources:**\n${refs.join("\n")}` : "";
           return `🔍 Search results for "${args.query}":\n\n${combined}${refsStr}`;
         }
+        
+        // Last resort — serialize the raw response
+        const raw = JSON.stringify(searchResponse).substring(0, 3000);
+        if (raw.length > 50) return `🔍 Search results for "${args.query}":\n\n${raw}`;
         return "No results found.";
       } catch {
         // Fallback to DuckDuckGo if Conversations API fails
