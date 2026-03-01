@@ -1088,8 +1088,36 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
 async function executePermissionTool(name: string, args: Record<string, string>, context: Record<string, unknown>): Promise<string> {
   switch (name) {
     case "search_gmail": {
-      // Use Composio for Gmail integration
-      if (!process.env.COMPOSIO_API_KEY) return "Gmail not configured. Set COMPOSIO_API_KEY to enable.";
+      // Priority 1: Use direct Gmail API with OAuth token from frontend
+      const gmailToken = context.gmailToken as string;
+      if (gmailToken) {
+        try {
+          const res = await fetch(
+            `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(args.query || "is:unread")}&maxResults=5`,
+            { headers: { Authorization: `Bearer ${gmailToken}` } }
+          );
+          const data = await res.json();
+          if (res.status === 401) return "Gmail session expired. Please reconnect Gmail via the 📧 icon in the sidebar.";
+          if (!data.messages?.length) return `No emails found for: "${args.query}"`;
+          const results = [];
+          for (const msg of data.messages.slice(0, 5)) {
+            const detailRes = await fetch(
+              `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`,
+              { headers: { Authorization: `Bearer ${gmailToken}` } }
+            );
+            const detail = await detailRes.json();
+            const headers = detail.payload?.headers || [];
+            results.push(
+              `📧 **${headers.find((h: {name: string}) => h.name === "Subject")?.value || "(no subject)"}**\n   From: ${headers.find((h: {name: string}) => h.name === "From")?.value || ""}\n   Date: ${headers.find((h: {name: string}) => h.name === "Date")?.value || ""}\n   Preview: ${(detail.snippet || "").slice(0, 150)}`
+            );
+          }
+          return results.join("\n\n");
+        } catch (e) {
+          return `Gmail search error: ${e instanceof Error ? e.message : "unknown"}. Try reconnecting via sidebar.`;
+        }
+      }
+      // Priority 2: Use Composio
+      if (!process.env.COMPOSIO_API_KEY) return "Gmail not connected. Click the 📧 icon in the sidebar to connect Gmail.";
       try {
         const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
           method: "POST",
@@ -1113,7 +1141,33 @@ async function executePermissionTool(name: string, args: Record<string, string>,
     }
 
     case "read_gmail": {
-      if (!process.env.COMPOSIO_API_KEY) return "Gmail not configured. Set COMPOSIO_API_KEY to enable.";
+      // Priority 1: Direct Gmail API with OAuth token
+      const readGmailToken = context.gmailToken as string;
+      if (readGmailToken && (args.id || args.messageId)) {
+        try {
+          const msgId = args.id || args.messageId;
+          const res = await fetch(
+            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=full`,
+            { headers: { Authorization: `Bearer ${readGmailToken}` } }
+          );
+          if (res.status === 401) return "Gmail session expired. Please reconnect via sidebar.";
+          const detail = await res.json();
+          let textBody = detail.snippet || "";
+          const parts = detail.payload?.parts || [];
+          for (const part of parts) {
+            if (part.mimeType === "text/plain" && part.body?.data) {
+              textBody = Buffer.from(part.body.data, "base64url").toString("utf8");
+              break;
+            }
+          }
+          const headers = detail.payload?.headers || [];
+          return `📧 **${headers.find((h: {name: string}) => h.name === "Subject")?.value || "No subject"}**\nFrom: ${headers.find((h: {name: string}) => h.name === "From")?.value || "Unknown"}\nDate: ${headers.find((h: {name: string}) => h.name === "Date")?.value || ""}\n\n${textBody.slice(0, 3000)}`;
+        } catch (e) {
+          return `Gmail read error: ${e instanceof Error ? e.message : "unknown"}`;
+        }
+      }
+      // Priority 2: Composio
+      if (!process.env.COMPOSIO_API_KEY) return "Gmail not connected. Click 📧 in sidebar to connect.";
       try {
         const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
           method: "POST",
