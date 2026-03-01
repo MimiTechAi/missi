@@ -2023,14 +2023,14 @@ export default function Home() {
                             msg.model.model.includes("pixtral") ? "text-pink-500" :
                             "text-amber-500"
                           }`}>
-                            {modelIcons[msg.model.model]} {msg.model.label}
+                            {modelIcons[msg.model.model]} {msg.model.model.includes("large") ? "Intelligence" : msg.model.model.includes("codestral") ? "Code" : msg.model.model.includes("pixtral") ? "Vision" : "Fast"}
                           </span>
                         )}
                         {msg.responseTime && (
                           <span className="text-[11px] text-zinc-300/80 tabular-nums">· {msg.responseTime >= 1000 ? `${(msg.responseTime/1000).toFixed(1)}s` : `${msg.responseTime}ms`}</span>
                         )}
                         {msg.toolCalls && msg.toolCalls.length > 0 && (
-                          <span className="text-[11px] text-zinc-400">· {msg.toolCalls?.length} tool{msg.toolCalls?.length !== 1 ? "s" : ""}</span>
+                          <span className="text-[11px] text-zinc-400 opacity-40">· {msg.toolCalls?.length} tool{msg.toolCalls?.length !== 1 ? "s" : ""}</span>
                         )}
                       </div>
 
@@ -2168,25 +2168,62 @@ export default function Home() {
                           return null;
                         })}
 
-                        {/* Tool cards — clean, expandable (like Perplexity sources) */}
+                        {/* Tool summary — minimal, expandable on click */}
                         {msg.toolCalls && msg.toolCalls.length > 0 && (
-                          <div className="mt-3 space-y-1.5">
-                            {(msg.toolCalls || []).filter(t => !["get_weather", "get_stock_price", "get_crypto_price", "news_headlines", "wikipedia", "run_code", "generate_code", "translate"].includes(t.tool)).map((t, j) => (
-                              <details key={j} className="group border border-zinc-200/60 rounded-2xl overflow-hidden glass-card tool-result-card">
-                                <summary className="flex items-center justify-between px-2.5 sm:px-3 py-2 cursor-pointer hover:bg-zinc-50 transition-colors list-none">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-emerald-500 text-[13px]">✓</span>
-                                    <span className="text-[13px] font-medium text-zinc-700">{toolIcons[t.tool]} {t.tool}</span>
-                                    <span className="text-[11px] text-zinc-400 truncate max-w-[180px]">{formatToolArgs(t.tool, t.args)}</span>
+                          <details className="mt-2 group">
+                            <summary className="flex items-center gap-2 cursor-pointer list-none text-[12px] text-zinc-400 hover:text-zinc-600 transition-colors select-none">
+                              <span className="text-emerald-500">✓</span>
+                              <span>Used {msg.toolCalls.length} tool{msg.toolCalls.length > 1 ? "s" : ""}</span>
+                              <span className="text-zinc-300">·</span>
+                              <span className="truncate max-w-[300px]">
+                                {msg.toolCalls.map(t => {
+                                  const labels: Record<string, string> = {
+                          web_search: "Searched the web", get_weather: "Checked weather",
+                          get_time: "Got time", calculate: "Calculated",
+                          run_code: "Ran code", read_webpage: "Read webpage",
+                          create_document: "Created document", translate: "Translated",
+                          analyze_data: "Analyzed data", generate_code: "Generated code",
+                          search_gmail: "Searched emails", read_gmail: "Read email",
+                          get_calendar: "Checked calendar", get_stock_price: "Fetched stock price",
+                          get_crypto_price: "Checked crypto", wikipedia: "Looked up Wikipedia",
+                          news_headlines: "Got headlines", summarize_text: "Summarized",
+                          search_files: "Searched files", get_location: "Got location",
+                          set_reminder: "Set reminder", change_voice: "Changed voice",
+                          unit_convert: "Converted units", define_word: "Defined word",
+                          random_fact: "Found fact",
+                        };
+                                  return labels[t.tool] || t.tool;
+                                }).filter((v, i, a) => a.indexOf(v) === i).join(", ")}
+                              </span>
+                              <svg className="w-3 h-3 text-zinc-300 group-open:rotate-180 transition-transform ml-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+                            </summary>
+                            <div className="mt-2 space-y-1 ml-4">
+                              {msg.toolCalls.map((t, j) => {
+                                const labels: Record<string, string> = {
+                          web_search: "Searched the web", get_weather: "Checked weather",
+                          get_time: "Got time", calculate: "Calculated",
+                          run_code: "Ran code", read_webpage: "Read webpage",
+                          create_document: "Created document", translate: "Translated",
+                          analyze_data: "Analyzed data", generate_code: "Generated code",
+                          search_gmail: "Searched emails", read_gmail: "Read email",
+                          get_calendar: "Checked calendar", get_stock_price: "Fetched stock price",
+                          get_crypto_price: "Checked crypto", wikipedia: "Looked up Wikipedia",
+                          news_headlines: "Got headlines", summarize_text: "Summarized",
+                          search_files: "Searched files", get_location: "Got location",
+                          set_reminder: "Set reminder", change_voice: "Changed voice",
+                          unit_convert: "Converted units", define_word: "Defined word",
+                          random_fact: "Found fact",
+                        };
+                                return (
+                                  <div key={j} className="flex items-center gap-2 text-[11px] text-zinc-400 py-0.5">
+                                    <span className="text-emerald-400">✓</span>
+                                    <span>{labels[t.tool] || t.tool}</span>
+                                    {t.duration && <span className="text-zinc-300 font-mono text-[10px]">{t.duration}ms</span>}
                                   </div>
-                                  <span className="text-[10px] text-zinc-400 font-mono shrink-0 ml-2">{t.duration}ms</span>
-                                </summary>
-                                <div className="px-3 py-2 border-t border-zinc-200 text-[11px] text-zinc-600 max-h-36 overflow-y-auto bg-white prose prose-sm prose-zinc">
-                                  {t.result?.slice(0, 800)}
-                                </div>
-                              </details>
-                            ))}
-                          </div>
+                                );
+                              })}
+                            </div>
+                          </details>
                         )}
 
                         {/* Document / Artifact cards — click to open canvas panel */}
@@ -2330,27 +2367,36 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Live tool activity (SSE streaming) */}
+              {/* Live tool activity — clean status pills (no raw data) */}
               {isLoading && activeTools.length > 0 && (
-                <div className="space-y-1.5 ml-8">
-                  {activeTools.map((t, i) => (
-                    <div key={i} className={`tool-card flex items-center gap-2.5 px-3 py-2.5 rounded-xl border ${
-                      t.status === "running"
-                        ? "running bg-amber-50/80 border-amber-200"
-                        : "done bg-emerald-50/80 border-emerald-200 animate-fade-in"
-                    }`} style={{
-                      animation: "slideInUp 0.3s ease-out",
-                      animationFillMode: "both",
-                      animationDelay: `${i * 80}ms`
-                    }}>
-                      <span className={t.status === "running" ? "animate-spin text-sm" : "text-sm"}>
-                        {t.status === "running" ? "⏳" : "✅"}
+                <div className="flex flex-wrap gap-1.5 ml-8 mb-2">
+                  {activeTools.map((t, i) => {
+                    const labels: Record<string, string> = {
+                      web_search: "Searching the web", get_weather: "Checking weather",
+                      get_time: "Getting time", calculate: "Calculating",
+                      run_code: "Running code", read_webpage: "Reading page",
+                      create_document: "Creating document", translate: "Translating",
+                      analyze_data: "Analyzing", generate_code: "Writing code",
+                      search_gmail: "Searching emails", read_gmail: "Reading email",
+                      get_calendar: "Checking calendar", get_stock_price: "Fetching price",
+                      get_crypto_price: "Checking crypto", wikipedia: "Looking up",
+                      news_headlines: "Getting headlines", summarize_text: "Summarizing",
+                      get_location: "Getting location", change_voice: "Changing voice",
+                      set_reminder: "Setting reminder", unit_convert: "Converting",
+                      define_word: "Looking up", random_fact: "Finding fact",
+                      search_files: "Searching files",
+                    };
+                    return (
+                      <span key={i} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium transition-all duration-300 ${
+                        t.status === "running"
+                          ? "bg-amber-50 text-amber-600 border border-amber-200/60 animate-pulse"
+                          : "bg-emerald-50 text-emerald-600 border border-emerald-200/60"
+                      }`} style={{ animationDelay: `${i * 50}ms` }}>
+                        <span className="text-[11px]">{t.status === "running" ? "○" : "✓"}</span>
+                        {labels[t.tool] || t.tool}
                       </span>
-                      <span className="text-[13px] font-medium text-zinc-700">{toolIcons[t.tool]} {t.tool}</span>
-                      <span className="text-[11px] text-zinc-400 truncate max-w-[250px]">{formatToolArgs(t.tool, t.args)}</span>
-                      {t.duration && <span className="text-[10px] text-emerald-500 font-mono ml-auto shrink-0">{t.duration}ms</span>}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 

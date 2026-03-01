@@ -295,3 +295,30 @@ button, [role="button"] {
 .typing-dot:nth-child(1) { animation-delay: 0ms; }
 .typing-dot:nth-child(2) { animation-delay: 150ms; }
 .typing-dot:nth-child(3) { animation-delay: 300ms; }
+
+/* Message entrance animation */
+@keyframes messageEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.message-enter {
+  animation: messageEnter 0.35s ease-out;
+}
+
+/* Smooth fade for tool pills */
+@keyframes pillFadeIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+.pill-enter {
+  animation: pillFadeIn 0.25s ease-out;
+}
+
+/* Status dot pulse */
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.status-pulse {
+  animation: statusPulse 1.5s ease-in-out infinite;
+}
