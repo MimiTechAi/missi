@@ -218,6 +218,8 @@ export default function Home() {
     folderFiles: string[] | null;
   }>({ gmailToken: null, folderFiles: null });
   const [sttLang, setSttLang] = useState("en-US");
+  const [useAgentsAPI, setUseAgentsAPI] = useState(false); // Toggle v1 (manual tools) vs v2 (Mistral Agents)
+  const [conversationId, setConversationId] = useState<string | null>(null);
   
   // Auto-detect browser language on mount
   useEffect(() => {
@@ -625,7 +627,8 @@ export default function Home() {
       
       // API call runs IN PARALLEL with filler audio
       const apiStart = Date.now();
-      const res = await fetch("/api/chat", {
+      const endpoint = useAgentsAPI ? "/api/chat-v2" : "/api/chat";
+        const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1539,7 +1542,15 @@ export default function Home() {
             <option key={v} value={v}>{l}</option>
           ))}
         </select>
-        <button onClick={() => { setMessages([]); saveMessages([]); }}
+        <button onClick={() => setUseAgentsAPI(!useAgentsAPI)}
+          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors text-[9px] font-bold ${
+            useAgentsAPI
+              ? "bg-violet-50 text-violet-500 ring-1 ring-violet-200"
+              : "text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
+          }`} title={useAgentsAPI ? "Agents API (v2) — Built-in tools" : "Manual Tools (v1) — 25 custom tools"}>
+          {useAgentsAPI ? "v2" : "v1"}
+        </button>
+        <button onClick={() => { setMessages([]); saveMessages([]); setConversationId(null); }}
           className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors" title="Clear (⌘K)">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
         </button>
@@ -1552,7 +1563,9 @@ export default function Home() {
         <header className="flex-shrink-0 h-11 border-b border-zinc-100 flex items-center justify-between px-5">
           <div className="flex items-center gap-2.5">
             <span className="text-[13px] font-semibold text-zinc-800">MISSI</span>
-            <span className="text-[11px] text-zinc-400 font-medium">4 Mistral Models · Voxtral STT · ElevenLabs TTS · 25 Tools</span>
+            <span className="text-[11px] text-zinc-400 font-medium">
+              {useAgentsAPI ? "Agents API · Web Search · Code Interpreter · Image Gen" : "4 Mistral Models · Voxtral STT · ElevenLabs TTS · 25 Tools"}
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
             {currentModel && (
