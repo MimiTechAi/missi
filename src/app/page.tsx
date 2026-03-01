@@ -572,6 +572,7 @@ export default function Home() {
   // Send message
   const sendMessage = useCallback(async (text: string, imageData?: string, fromVoice?: boolean) => {
     if (!text.trim() && !imageData) return;
+    if (isLoading) return; // Prevent double-send
     const userMessage: Message = { role: "user", content: text, image: imageData, timestamp: Date.now(), fromVoice: !!fromVoice };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
@@ -1180,7 +1181,7 @@ export default function Home() {
   };
 
   const clearConversation = () => {
-    setMessages([]); localStorage.removeItem(STORAGE_KEY);
+    setMessages([]); setInput(""); localStorage.removeItem(STORAGE_KEY);
     setShowChat(false); setCurrentModel(null); setCurrentPlan(null); setLatestContent("");
     setConversationId(null); setActiveTools([]); setBrowsingActivities([]);
     ttsQueueRef.current = []; ttsBufferRef.current = "";
@@ -1850,7 +1851,7 @@ export default function Home() {
                           <span className="text-[11px] text-zinc-300/80 tabular-nums">· {msg.responseTime >= 1000 ? `${(msg.responseTime/1000).toFixed(1)}s` : `${msg.responseTime}ms`}</span>
                         )}
                         {msg.toolCalls && msg.toolCalls.length > 0 && (
-                          <span className="text-[11px] text-zinc-400">· {msg.toolCalls.length} tool{msg.toolCalls.length !== 1 ? "s" : ""}</span>
+                          <span className="text-[11px] text-zinc-400">· {msg.toolCalls?.length} tool{msg.toolCalls?.length !== 1 ? "s" : ""}</span>
                         )}
                       </div>
 
@@ -1978,7 +1979,7 @@ export default function Home() {
                         {/* Tool cards — clean, expandable (like Perplexity sources) */}
                         {msg.toolCalls && msg.toolCalls.length > 0 && (
                           <div className="mt-3 space-y-1.5">
-                            {msg.toolCalls.filter(t => !["get_weather", "get_stock_price", "get_crypto_price", "news_headlines", "wikipedia", "run_code", "generate_code", "translate"].includes(t.tool)).map((t, j) => (
+                            {(msg.toolCalls || []).filter(t => !["get_weather", "get_stock_price", "get_crypto_price", "news_headlines", "wikipedia", "run_code", "generate_code", "translate"].includes(t.tool)).map((t, j) => (
                               <details key={j} className="group border border-zinc-200/60 rounded-2xl overflow-hidden glass-card tool-result-card">
                                 <summary className="flex items-center justify-between px-2.5 sm:px-3 py-2 cursor-pointer hover:bg-zinc-50 transition-colors list-none">
                                   <div className="flex items-center gap-2">
@@ -2212,7 +2213,7 @@ export default function Home() {
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); }} />
 
               {/* Text input */}
-              <textarea ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+              <textarea ref={inputRef as React.RefObject<HTMLTextAreaElement>} disabled={isLoading}
                 value={input}
                 onChange={(e) => { setInput(e.target.value); (e.target as HTMLTextAreaElement).style.height = "auto"; (e.target as HTMLTextAreaElement).style.height = Math.min((e.target as HTMLTextAreaElement).scrollHeight, 200) + "px"; }}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
