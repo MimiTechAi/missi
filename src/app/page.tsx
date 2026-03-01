@@ -440,10 +440,13 @@ export default function Home() {
       });
     }
     
-    setVoiceState("idle");
     setAudioLevel(0);
     if (shouldRelistenRef.current && startListeningRef.current) {
-      setTimeout(() => startListeningRef.current?.(), 400);
+      // Continuous mode: go directly to listening (no idle gap)
+      setVoiceState("listening");
+      setTimeout(() => startListeningRef.current?.(), 600);
+    } else {
+      setVoiceState("idle");
     }
   }, []); // No deps needed — uses refs
 
@@ -902,7 +905,13 @@ export default function Home() {
             await speakText(streamedContent, msgIndex);
           }
         } else {
-          setVoiceState("idle");
+          // Non-voice response — but if continuous mode, restart listening
+          if (shouldRelistenRef.current && startListeningRef.current) {
+            setVoiceState("listening");
+            setTimeout(() => startListeningRef.current?.(), 600);
+          } else {
+            setVoiceState("idle");
+          }
         }
       }
       setActiveTools([]);
@@ -951,8 +960,8 @@ export default function Home() {
     let hasSpeech = false;
     let silenceStart = 0;
     let animFrame = 0;
-    const SILENCE_THRESHOLD = 0.015; // RMS below this = silence
-    const SILENCE_DURATION = 1200; // ms of silence before sending
+    const SILENCE_THRESHOLD = 0.018; // RMS below this = silence (tuned for real rooms)
+    const SILENCE_DURATION = 2200; // ms of silence before auto-sending (human-like pause)
     let stopped = false;
 
     navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })

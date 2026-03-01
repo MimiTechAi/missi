@@ -1380,7 +1380,7 @@ const SYSTEM_PROMPT = buildSystemPrompt();
 // ============================================================
 // MAIN API HANDLER — Server-Sent Events (SSE) Streaming
 // ============================================================
-export const maxDuration = 60; // Allow up to 60s for complex multi-tool queries
+export const maxDuration = 120; // 120s for multi-tool chains (Vercel Pro/Hobby max)
 
 export async function POST(req: NextRequest) {
   const encoder = new TextEncoder();
@@ -1541,7 +1541,7 @@ export async function POST(req: NextRequest) {
           // 5. Tool execution loop with LIVE streaming
           const toolResults: { tool: string; args: Record<string, string>; result: string; duration: number }[] = [];
           let rounds = 0;
-          const maxRounds = plan ? 8 : 5;
+          const maxRounds = plan ? 6 : 4; // Reduced to prevent timeouts
 
           while (assistantMessage.toolCalls && assistantMessage.toolCalls.length > 0 && rounds < maxRounds) {
             rounds++;
