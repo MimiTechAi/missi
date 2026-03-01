@@ -1634,19 +1634,18 @@ export default function Home() {
 
             {/* Capabilities strip */}
             {voiceState === "idle" && (
-              <div className="mt-10 flex flex-wrap justify-center gap-3 max-w-lg">
+              <div className="mt-7 flex flex-wrap justify-center gap-x-4 gap-y-1 max-w-lg">
                 {[
-                  { icon: "🔍", label: "Web Search" },
+                  { icon: "🔍", label: "Search" },
                   { icon: "🌤️", label: "Weather" },
                   { icon: "💻", label: "Code" },
-                  { icon: "📈", label: "Stocks" },
-                  { icon: "📝", label: "Documents" },
+                  { icon: "📈", label: "Finance" },
+                  { icon: "📝", label: "Reports" },
                   { icon: "👁️", label: "Vision" },
                   { icon: "🌐", label: "Translate" },
-                  { icon: "📖", label: "Wikipedia" },
                 ].map((cap) => (
                   <span key={cap.label} className="text-[11px] text-zinc-400 flex items-center gap-1">
-                    <span className="text-[13px]">{cap.icon}</span>{cap.label}
+                    <span className="text-[12px]">{cap.icon}</span>{cap.label}
                   </span>
                 ))}
               </div>
