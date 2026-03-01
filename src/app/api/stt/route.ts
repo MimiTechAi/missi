@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
     // Build FormData for Mistral Voxtral API
     const mistralForm = new FormData();
-    mistralForm.append("model", "voxtral-mini-latest");
+    mistralForm.append("model", "voxtral-small-latest");
     mistralForm.append(
       "file",
       new Blob([await audioBlob.arrayBuffer()], { type: "audio/webm" }),
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       text: result.text || "",
       language: result.language,
       duration: result.duration,
-      model: "voxtral-mini-latest",
+      model: "voxtral-small-latest",
     });
   } catch (error) {
     console.error("STT route error:", error);

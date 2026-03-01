@@ -14,6 +14,7 @@ type ToolResult = {
   args: Record<string, string>;
   result: string;
   duration: number;
+  chartSvg?: string;
 };
 
 type Source = {
@@ -181,7 +182,7 @@ export default function Home() {
   const [latestContent, setLatestContent] = useState("");
   // spokenSoFar tracked via ref — no re-render needed
   const [thinkingStatus, setThinkingStatus] = useState(""); // Live tool progress
-  const [activeTools, setActiveTools] = useState<{ tool: string; args: Record<string, string>; status: "running" | "done"; result?: string; duration?: number }[]>([]); // Live streaming tools
+  const [activeTools, setActiveTools] = useState<{ tool: string; args: Record<string, string>; status: "running" | "done"; result?: string; duration?: number; chartSvg?: string }[]>([]); // Live streaming tools
   const [browsingActivities, setBrowsingActivities] = useState<{ url: string; domain: string; status: "loading" | "reading" | "done"; content?: string }[]>([]);
   const [showBrowsingPanel, setShowBrowsingPanel] = useState(true);
   const [artifactPanel, setArtifactPanel] = useState<{ title: string; content: string; type: string } | null>(null);
@@ -754,6 +755,15 @@ export default function Home() {
               }
               streamedToolResults.push(eventData);
               // Handle special tool results
+              if (eventData.tool === "generate_chart") {
+                try {
+                  const chartData = JSON.parse(eventData.result);
+                  if (chartData._type === "chart" && chartData.svg) {
+                    // Store chart SVG for inline rendering
+                    streamedToolResults[streamedToolResults.length - 1].chartSvg = chartData.svg;
+                  }
+                } catch {}
+              }
               if (eventData.tool === "change_voice") {
                 try {
                   const voiceData = JSON.parse(eventData.result);
@@ -997,7 +1007,7 @@ export default function Home() {
 
           // Show "transcribing" state — in status bar, not input field (FIX #15)
           setInput("");
-          setThinkingStatus("🎙️ Transcribing with Voxtral...");
+          setThinkingStatus("🎙️ Transcribing...");
           setVoiceState("thinking");
 
           const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
@@ -1627,7 +1637,7 @@ export default function Home() {
 
 
   const modelIcons: Record<string, string> = {
-    "mistral-small-latest": "⚡",
+    "mistral-small-latest": "⚡", "magistral-medium-latest": "🧮", "mistral-medium-latest": "🎨", "mistral-ocr-latest": "📄",
     "mistral-large-latest": "🧠",
     "codestral-latest": "💻",
     "pixtral-large-latest": "👁️",
@@ -1837,7 +1847,7 @@ export default function Home() {
             <span className="text-[13px] font-semibold text-zinc-800">MISSI</span>
             {isOffline && <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-500 font-medium">Offline</span>}
             <span className="text-[11px] text-zinc-400/70 font-medium hidden sm:inline">
-              4 Mistral Models · Voxtral STT · ElevenLabs TTS · 10,000+ Integrations via Composio
+              6 Mistral Models · Voxtral STT · ElevenLabs TTS · 10,000+ Integrations via Composio
             </span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -1953,9 +1963,11 @@ export default function Home() {
                   { icon: "📧", label: "Gmail" },
                   { icon: "📅", label: "Calendar" },
                   { icon: "💻", label: "Code" },
+                  { icon: "📊", label: "Charts" },
                   { icon: "📈", label: "Finance" },
                   { icon: "👁️", label: "Vision" },
                   { icon: "🎨", label: "Images" },
+                  { icon: "📄", label: "OCR" },
                   { icon: "🌐", label: "10K+ Tools" },
                 ].map((cap) => (
                   <span key={cap.label} className="inline-flex items-center gap-1 text-[11px] text-zinc-400/70 bg-white/50 border border-zinc-200/30 rounded-full px-2.5 py-0.5 backdrop-blur-sm">
@@ -2167,6 +2179,13 @@ export default function Home() {
                           }
                           return null;
                         })}
+
+                        {/* Inline Charts */}
+                        {msg.toolCalls?.filter(t => t.chartSvg).map((t, j) => (
+                          <div key={"chart-" + j} className="mt-3 p-4 rounded-2xl bg-white border border-zinc-200/60 shadow-sm">
+                            <div dangerouslySetInnerHTML={{ __html: t.chartSvg || "" }} className="w-full max-w-[400px] mx-auto" />
+                          </div>
+                        ))}
 
                         {/* Tool summary — minimal, expandable on click */}
                         {msg.toolCalls && msg.toolCalls.length > 0 && (
@@ -2490,7 +2509,7 @@ export default function Home() {
             </div>
 
             <p className="text-[10px] text-zinc-400/50 text-center mt-3 font-medium">
-              Built for the Mistral AI Worldwide Hackathon 2026 by MiMi Tech AI · 10,000+ tools via Composio · 4 Mistral models
+              Built for the Mistral AI Worldwide Hackathon 2026 by MiMi Tech AI · 10,000+ integrations via Composio · 6 Mistral models
             </p>
           </div>
         </div>

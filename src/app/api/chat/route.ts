@@ -65,15 +65,15 @@ function routeModel(message: string, hasImage: boolean): ModelRoute {
   if (hasImage) {
     return {
       model: "pixtral-large-latest",
-      label: "Pixtral Large (Vision)",
-      reason: "Image analysis detected",
+      label: "Pixtral Large",
+      reason: "Vision analysis",
     };
   }
 
   const lower = message.toLowerCase();
   const wordCount = message.split(/\s+/).length;
 
-  // Code generation / debugging — specialized model
+  // Code generation / debugging — Codestral specialist
   const codeKeywords = [
     "code", "function", "class", "debug", "refactor", "implement",
     "javascript", "python", "typescript", "rust", "html", "css",
@@ -85,31 +85,60 @@ function routeModel(message: string, hasImage: boolean): ModelRoute {
   if (codeKeywords.some((k) => lower.includes(k))) {
     return {
       model: "codestral-latest",
-      label: "Codestral (Code Specialist)",
-      reason: "Code generation or debugging",
+      label: "Codestral",
+      reason: "Code specialist",
     };
   }
 
-  // Simple, fast queries — greetings, short acknowledgments, yes/no
+  // Deep reasoning / math / logic — Magistral (chain-of-thought reasoning model)
+  const reasoningKeywords = [
+    "reason", "think step by step", "prove", "derive", "theorem",
+    "logic", "mathematical", "equation", "solve", "proof",
+    "why does", "explain why", "how does.*work", "philosophy",
+    "ethical", "dilemma", "paradox", "puzzle", "riddle",
+    "warum", "erkläre warum", "beweise", "logisch", "mathematisch",
+    "schritt für schritt", "denk nach",
+  ];
+  if (reasoningKeywords.some((k) => lower.includes(k)) || (lower.includes("?") && wordCount > 30)) {
+    return {
+      model: "magistral-medium-latest",
+      label: "Magistral",
+      reason: "Deep reasoning",
+    };
+  }
+
+  // Simple, fast queries — greetings, short acknowledgments
   const simplePatterns = [
     /^(hi|hey|hello|hallo|yo|ok|ja|nein|yes|no|danke|thanks|cool|nice|gut)\b/i,
-    /^.{1,15}$/,  // Very short messages (under 15 chars)
+    /^.{1,15}$/,
   ];
   if (simplePatterns.some((p) => p.test(message.trim())) && wordCount <= 5) {
     return {
       model: "mistral-small-latest",
-      label: "Mistral Small (Fast)",
+      label: "Mistral Small",
       reason: "Quick response",
     };
   }
 
-  // Everything else → Mistral Large for best quality
-  // This includes: tool calls, emails, calendar, research, analysis,
-  // questions, conversations, translations, introductions, etc.
+  // Creative writing — Creative model
+  const creativeKeywords = [
+    "story", "poem", "creative", "fiction", "imagine", "fantasy",
+    "write me a", "compose", "narrative", "gedicht", "geschichte",
+    "schreib mir", "erzähl", "kreativ",
+  ];
+  if (creativeKeywords.some((k) => lower.includes(k))) {
+    return {
+      model: "mistral-medium-latest",
+      label: "Mistral Medium",
+      reason: "Creative generation",
+    };
+  }
+
+  // Default: Mistral Large for best quality
   return {
     model: "mistral-large-latest",
-    label: "Mistral Large (Intelligence)",
-    reason: "Best quality response",
+    label: "Mistral Large",
+    reason: "Best quality",
   };
 }
 
@@ -136,7 +165,7 @@ async function createPlan(userMessage: string): Promise<string[] | null> {
         {
           role: "system",
           content: `You are MISSI's task planner. Break complex requests into 2-5 concrete execution steps.
-Available tools: web_search, read_webpage, get_weather, get_time, calculate, run_code, create_document, translate, analyze_data, generate_code, summarize_text, search_gmail, get_calendar, get_stock_price, get_crypto_price, wikipedia, news_headlines, unit_convert, define_word, random_fact.
+Available tools: web_search, read_webpage, get_weather, get_time, calculate, run_code, create_document, translate, analyze_data, generate_code, summarize_text, search_gmail, get_calendar, get_stock_price, get_crypto_price, wikipedia, news_headlines, unit_convert, define_word, random_fact, analyze_document, generate_chart.
 Rules: Each step = one tool call. Include search_gmail and get_calendar when relevant. Be specific about tool names.
 IMPORTANT: If the user asks for a report, summary, or document, ALWAYS include "Create a document with the findings" as the LAST step.
 Return ONLY a JSON array of step descriptions. No markdown, no explanation.
@@ -526,6 +555,39 @@ const tools = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "analyze_document",
+      description: "Analyze PDFs, images, or scanned documents using OCR. Extract text, tables, and structure. Can answer questions about document content.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          url: { type: "string" as const, description: "URL of the document or image to analyze" },
+          query: { type: "string" as const, description: "Optional: specific question about the document" },
+        },
+        required: ["url"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "generate_chart",
+      description: "Generate a visual chart or graph from data. Supports bar, line, pie, area, and scatter charts. Returns inline SVG visualization.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          type: { type: "string" as const, description: "Chart type: bar, line, pie, area, scatter" },
+          title: { type: "string" as const, description: "Chart title" },
+          labels: { type: "string" as const, description: "Comma-separated labels (x-axis or categories)" },
+          values: { type: "string" as const, description: "Comma-separated numeric values" },
+          colors: { type: "string" as const, description: "Optional: comma-separated hex colors (#f97316,#3b82f6)" },
+        },
+        required: ["type", "title", "labels", "values"],
+      },
+    },
+  },
 ];
 
 // ============================================================
@@ -759,11 +821,16 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
 
     case "create_document": {
       const docType = args.type || "document";
+      const styledContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${args.title || "Document"}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Inter',-apple-system,sans-serif;line-height:1.7;color:#1a1a1a;max-width:800px;margin:0 auto;padding:48px 32px;background:#fafafa}h1{font-size:28px;font-weight:700;margin-bottom:8px;color:#111}h2{font-size:20px;font-weight:600;margin-top:32px;margin-bottom:12px;color:#222;border-bottom:2px solid #f97316;padding-bottom:4px;display:inline-block}h3{font-size:16px;font-weight:600;margin-top:24px;margin-bottom:8px}p{margin-bottom:16px}ul,ol{margin-bottom:16px;padding-left:24px}li{margin-bottom:6px}table{width:100%;border-collapse:collapse;margin:20px 0}th{background:#f97316;color:white;padding:10px 14px;text-align:left;font-size:13px;text-transform:uppercase}td{padding:10px 14px;border-bottom:1px solid #eee}tr:nth-child(even){background:#f9f9f9}blockquote{border-left:3px solid #f97316;padding-left:16px;margin:16px 0;color:#555}code{background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:13px}pre{background:#1e1e1e;color:#d4d4d4;padding:16px;border-radius:8px;overflow-x:auto;margin:16px 0}.header{border-bottom:3px solid #f97316;padding-bottom:16px;margin-bottom:32px}.meta{color:#888;font-size:13px;margin-top:4px}.footer{margin-top:48px;padding-top:16px;border-top:1px solid #ddd;color:#aaa;font-size:12px;text-align:center}</style></head><body>
+<div class="header"><h1>${args.title || "Document"}</h1><p class="meta">Generated by MISSI · ${new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"})} · MiMi Tech AI</p></div>
+${args.content}
+<div class="footer"><p>Generated by MISSI — Powered by Mistral AI · MiMi Tech AI © ${new Date().getFullYear()}</p></div></body></html>`;
       return JSON.stringify({
         _type: "document",
         title: args.title,
         docType,
-        content: args.content,
+        content: styledContent,
         createdAt: new Date().toISOString(),
       });
     }
@@ -914,7 +981,82 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
       }
     }
 
-    case "get_location": {
+    case "analyze_document": {
+      if (!args.url) return "Please provide a URL to analyze.";
+      try {
+        const ocrRes = await mistral.chat.complete({
+          model: "mistral-ocr-latest",
+          messages: [
+            { role: "user", content: [
+              { type: "text", text: args.query || "Extract and summarize all text content from this document." },
+              { type: "image_url", imageUrl: args.url },
+            ]},
+          ],
+        });
+        const text = typeof ocrRes.choices?.[0]?.message?.content === "string" 
+          ? ocrRes.choices[0].message.content 
+          : "Could not extract text from document.";
+        return text.slice(0, 4000);
+      } catch (e) {
+        return `Document analysis failed: ${e instanceof Error ? e.message : "unknown error"}`;
+      }
+    }
+
+    case "generate_chart": {
+      const labels = (args.labels || "").split(",").map((l: string) => l.trim());
+      const values = (args.values || "").split(",").map((v: string) => parseFloat(v.trim()));
+      const colors = args.colors ? (args.colors as string).split(",").map((c: string) => c.trim()) : 
+        ["#f97316", "#3b82f6", "#10b981", "#8b5cf6", "#ec4899", "#eab308", "#06b6d4", "#ef4444"];
+      const chartType = args.type || "bar";
+      const title = args.title || "Chart";
+      const maxVal = Math.max(...values);
+      
+      let svg = "";
+      if (chartType === "pie") {
+        // Pie chart
+        const total = values.reduce((a: number, b: number) => a + b, 0);
+        let currentAngle = -90;
+        const slices = values.map((v: number, i: number) => {
+          const angle = (v / total) * 360;
+          const startAngle = currentAngle;
+          const endAngle = currentAngle + angle;
+          currentAngle = endAngle;
+          const startRad = (startAngle * Math.PI) / 180;
+          const endRad = (endAngle * Math.PI) / 180;
+          const x1 = 150 + 100 * Math.cos(startRad);
+          const y1 = 150 + 100 * Math.sin(startRad);
+          const x2 = 150 + 100 * Math.cos(endRad);
+          const y2 = 150 + 100 * Math.sin(endRad);
+          const largeArc = angle > 180 ? 1 : 0;
+          return `<path d="M150,150 L${x1},${y1} A100,100 0 ${largeArc},1 ${x2},${y2} Z" fill="${colors[i % colors.length]}" opacity="0.85"/>`;
+        }).join("");
+        const legend = labels.map((l: string, i: number) => 
+          `<text x="280" y="${30 + i * 22}" font-size="12" fill="#666"><tspan fill="${colors[i % colors.length]}">●</tspan> ${l}: ${values[i]} (${Math.round(values[i]/total*100)}%)</text>`
+        ).join("");
+        svg = `<svg viewBox="0 0 450 300" xmlns="http://www.w3.org/2000/svg"><text x="150" y="20" text-anchor="middle" font-size="14" font-weight="bold" fill="#333">${title}</text>${slices}${legend}</svg>`;
+      } else {
+        // Bar/line chart
+        const barW = Math.min(40, 280 / labels.length - 4);
+        const bars = values.map((v: number, i: number) => {
+          const h = (v / maxVal) * 180;
+          const x = 50 + i * (280 / labels.length);
+          if (chartType === "line" && i > 0) {
+            const prevH = (values[i-1] / maxVal) * 180;
+            const prevX = 50 + (i-1) * (280 / labels.length) + barW/2;
+            return `<line x1="${prevX}" y1="${220-prevH}" x2="${x+barW/2}" y2="${220-h}" stroke="${colors[0]}" stroke-width="2.5"/><circle cx="${x+barW/2}" cy="${220-h}" r="4" fill="${colors[0]}"/>`;
+          }
+          return `<rect x="${x}" y="${220-h}" width="${barW}" height="${h}" rx="3" fill="${colors[i % colors.length]}" opacity="0.85"/><text x="${x+barW/2}" y="${215-h}" text-anchor="middle" font-size="10" fill="#666">${v}</text>`;
+        }).join("");
+        const xLabels = labels.map((l: string, i: number) => 
+          `<text x="${50 + i * (280/labels.length) + barW/2}" y="240" text-anchor="middle" font-size="10" fill="#999">${l}</text>`
+        ).join("");
+        svg = `<svg viewBox="0 0 380 260" xmlns="http://www.w3.org/2000/svg"><text x="190" y="18" text-anchor="middle" font-size="14" font-weight="bold" fill="#333">${title}</text><line x1="45" y1="220" x2="340" y2="220" stroke="#e5e5e5" stroke-width="1"/>${bars}${xLabels}</svg>`;
+      }
+      
+      return JSON.stringify({ _type: "chart", title, chartType, svg, data: { labels, values } });
+    }
+
+        case "get_location": {
       // Location is passed from frontend via context
       return "Location must be provided by the browser. The user's location will be passed from the frontend.";
     }
@@ -1276,7 +1418,8 @@ function buildSystemPrompt(): string {
 
   return `<identity>
 You are MISSI — Mistral Intelligent Super System Interface — a voice-first AI operating system built for the Mistral AI Worldwide Hackathon 2026.
-You are powered by Mistral AI's complete model ecosystem with intelligent multi-model routing across 4 specialized models.
+You are powered by Mistral AI's complete model ecosystem with intelligent multi-model routing across 6 specialized models — Large, Magistral, Medium, Codestral, Pixtral, and Small.
+Magistral handles deep reasoning and mathematical proofs. Mistral Medium excels at creative writing.
 Built by MiMi Tech AI (mimitechai.com) — a German AI company specializing in enterprise AI strategy, digital twins, and process automation.
 </identity>
 
@@ -1314,7 +1457,7 @@ Your responses will be read aloud by a text-to-speech engine, so:
 </language_rules>
 
 <tools>
-You have 25 built-in tools PLUS 10,000+ external integrations via Composio.
+You have 27 built-in tools PLUS 10,000+ external integrations via Composio.
 
 ABSOLUTE RULE: ALWAYS use the appropriate tool. NEVER answer from memory when a tool exists for the task.
 If the user asks about weather, time, stocks, news, or any real-time data — you MUST call the tool, even if you think you know the answer.
@@ -1333,6 +1476,7 @@ If the user asks about weather, time, stocks, news, or any real-time data — yo
 | Calendar events, schedule | get_calendar | Uses Composio Google Calendar |
 | Calculate, math, convert | calculate | Financial calcs, unit conversion |
 | Run/execute code | run_code | JavaScript execution |
+| Read PDF/document | analyze_document | OCR via Mistral OCR model |
 | Generate code | generate_code | Production-quality via Codestral |
 | Create document/report | create_document | Downloadable HTML/Markdown |
 | Translate text | translate | Any language pair |
