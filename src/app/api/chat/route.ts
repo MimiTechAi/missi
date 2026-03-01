@@ -497,28 +497,7 @@ const tools = [
 // ============================================================
 
 // Helper to execute Composio tools directly
-async function composioExecute(toolName: string, params: Record<string, unknown>): Promise<Record<string, unknown> | null> {
-  if (!process.env.COMPOSIO_API_KEY) return null;
-  try {
-    const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.COMPOSIO_API_KEY,
-      },
-      body: JSON.stringify({
-        tool_name: toolName,
-        input: params,
-        user_id: "missi_demo_user",
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
-}
+// composioExecute removed — integrated into executePermissionTool
 
 async function executeTool(name: string, args: Record<string, string>): Promise<string> {
   switch (name) {
@@ -675,7 +654,7 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
         
         if (isPython) {
           // Translate common Python patterns to JavaScript for sandboxed execution
-          let jsCode = args.code
+          const jsCode = args.code
             .replace(/^print\((.*)\)$/gm, "console.log($1)")
             .replace(/^(\s+)print\((.*)\)$/gm, "$1console.log($2)")
             .replace(/def (\w+)\((.*?)\):/g, "function $1($2) {")

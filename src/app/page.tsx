@@ -82,35 +82,6 @@ function saveMessages(msgs: Message[]) {
 // ============================================================
 // Typing Hook
 // ============================================================
-function useTypingEffect(text: string, speed: number = 18, enabled: boolean = true): string {
-  const [displayed, setDisplayed] = useState("");
-  const indexRef = useRef(0);
-
-  useEffect(() => {
-    if (!enabled) { setDisplayed(text); return; }
-    setDisplayed("");
-    indexRef.current = 0;
-
-    const interval = setInterval(() => {
-      indexRef.current += 1;
-      // Type faster — 3 chars at a time for natural feel
-      const chars = Math.min(3, text.length - indexRef.current);
-      indexRef.current += chars;
-      
-      if (indexRef.current >= text.length) {
-        setDisplayed(text);
-        clearInterval(interval);
-      } else {
-        setDisplayed(text.slice(0, indexRef.current));
-      }
-    }, speed);
-
-    return () => clearInterval(interval);
-  }, [text, speed, enabled]);
-
-  return displayed;
-}
-
 // ============================================================
 // Source Extraction — Perplexity-style source cards
 // ============================================================
@@ -203,12 +174,12 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [continuousMode, setContinuousMode] = useState(false);
-  const [showChat, setShowChat] = useState(true);
+  // showChat removed — unused
   const [currentModel, setCurrentModel] = useState<ModelRoute | null>(null);
   const [currentPlan, setCurrentPlan] = useState<string[] | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [latestContent, setLatestContent] = useState("");
-  const [spokenSoFar, setSpokenSoFar] = useState(""); // Syncs with TTS playback
+  // spokenSoFar tracked via ref — no re-render needed
   const [thinkingStatus, setThinkingStatus] = useState(""); // Live tool progress
   const [activeTools, setActiveTools] = useState<{ tool: string; args: Record<string, string>; status: "running" | "done"; result?: string; duration?: number }[]>([]); // Live streaming tools
   const [browsingActivities, setBrowsingActivities] = useState<{ url: string; domain: string; status: "loading" | "reading" | "done"; content?: string }[]>([]);
@@ -389,13 +360,13 @@ export default function Home() {
     }
     
     setVoiceState("speaking");
-    setSpokenSoFar(""); // Reset
+    // spokenSoFar tracking removed // Reset
     let accumulated = "";
     
     for (const chunk of chunks) {
       // Reveal this chunk's text BEFORE audio plays (like subtitles appearing)
       accumulated += (accumulated ? " " : "") + chunk;
-      setSpokenSoFar(accumulated);
+      // spokenSoFar tracking removed
       
       // Update the message in-place so chat panel shows progressive text
       if (messageIndex !== undefined) {
@@ -443,7 +414,7 @@ export default function Home() {
     }
     
     // Reveal full text at the end
-    setSpokenSoFar(text);
+    // spokenSoFar tracking removed
     if (messageIndex !== undefined) {
       setMessages(prev => {
         const updated = [...prev];
@@ -582,7 +553,6 @@ export default function Home() {
     setInput("");
     setIsLoading(true);
     if (fromVoice) setVoiceState("thinking");
-    setShowChat(true);
     setCurrentModel(null);
     setCurrentPlan(null);
     setLatestContent("");
@@ -665,7 +635,7 @@ export default function Home() {
       let streamedContent = "";
       let streamedModel: ModelRoute | null = null;
       let streamedPlan: string[] | null = null;
-      let streamedToolResults: ToolResult[] = [];
+      const streamedToolResults: ToolResult[] = [];
       let streamedDocuments: Document[] = [];
       let streamedSuggestions: string[] = [];
       const activeTools: { tool: string; args: Record<string, string>; status: "running" | "done"; result?: string; duration?: number }[] = [];
@@ -1243,7 +1213,7 @@ export default function Home() {
 
   const clearConversation = () => {
     setMessages([]); setInput(""); localStorage.removeItem(STORAGE_KEY);
-    setShowChat(false); setCurrentModel(null); setCurrentPlan(null); setLatestContent("");
+    setCurrentModel(null); setCurrentPlan(null); setLatestContent("");
     setConversationId(null); setActiveTools([]); setBrowsingActivities([]);
     ttsQueueRef.current = []; ttsBufferRef.current = "";
   };
@@ -1496,7 +1466,7 @@ export default function Home() {
         };
 
         bargeInAnimRef.current = requestAnimationFrame(checkVoice);
-      } catch (err) {
+      } catch {
         // Barge-in mic denied — silent fail
       }
     })();
@@ -1513,7 +1483,7 @@ export default function Home() {
         bargeInCtxRef.current = null;
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [voiceState]);
 
   // ── Wake Word Detection ("Hey Missi") ──
@@ -1623,12 +1593,6 @@ export default function Home() {
     navigator.clipboard.writeText(content).then(() => {}).catch(() => {});
   }, []);
 
-  const modelColors: Record<string, string> = {
-    "mistral-small-latest": "text-emerald-400",
-    "mistral-large-latest": "text-violet-400",
-    "codestral-latest": "text-blue-400",
-    "pixtral-large-latest": "text-pink-400",
-  };
 
   const modelIcons: Record<string, string> = {
     "mistral-small-latest": "⚡",
