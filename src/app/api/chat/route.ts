@@ -1217,9 +1217,10 @@ async function executePermissionTool(name: string, args: Record<string, string>,
           // Format events with relative time
           return events.slice(0, 10).map((e: Record<string, unknown>) => {
             const startObj = e.start as Record<string, string> | undefined;
-            const startDT = startObj?.dateTime ? new Date(startObj.dateTime) : null;
+            const isAllDay = !startObj?.dateTime && !!startObj?.date;
+            const startDT = startObj?.dateTime ? new Date(startObj.dateTime) : (startObj?.date ? new Date(startObj.date + "T00:00:00") : null);
             const endObj = e.end as Record<string, string> | undefined;
-            const endDT = endObj?.dateTime ? new Date(endObj.dateTime) : null;
+            const endDT = endObj?.dateTime ? new Date(endObj.dateTime) : (endObj?.date ? new Date(endObj.date + "T23:59:59") : null);
             
             // Relative time
             let timeLabel = "";
@@ -1234,10 +1235,11 @@ async function executePermissionTool(name: string, args: Record<string, string>,
             }
             
             const dateStr = startDT ? startDT.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "short" }) : "";
-            const timeStr = startDT ? startDT.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "";
-            const endTimeStr = endDT ? endDT.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "";
-            const duration = startDT && endDT ? Math.round((endDT.getTime() - startDT.getTime()) / 60000) : 0;
-            const durationStr = duration > 0 ? (duration >= 60 ? Math.floor(duration / 60) + "h" + (duration % 60 > 0 ? " " + (duration % 60) + "min" : "") : duration + " min") : "";
+            const timeStr = isAllDay ? "ganztägig" : (startDT ? startDT.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "");
+            const endTimeStr = isAllDay ? "" : (endDT ? endDT.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "");
+            const duration = startDT && endDT && !isAllDay ? Math.round((endDT.getTime() - startDT.getTime()) / 60000) : 0;
+            const daySpan = isAllDay && startDT && endDT ? Math.ceil((endDT.getTime() - startDT.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+            const durationStr = isAllDay ? (daySpan > 1 ? daySpan + " Tage" : "") : (duration > 0 ? (duration >= 60 ? Math.floor(duration / 60) + "h" + (duration % 60 > 0 ? " " + (duration % 60) + "min" : "") : duration + " min") : "");
             
             return `📅 **${e.summary || "Untitled"}** ${timeLabel ? "(" + timeLabel + ")" : ""}\n   🕐 ${dateStr} ${timeStr}${endTimeStr ? " – " + endTimeStr : ""}${durationStr ? " · " + durationStr : ""}${(e.location as string) ? "\n   📍 " + e.location : ""}${(e.attendees as Array<{email: string}> || []).length > 0 ? "\n   👥 " + (e.attendees as Array<{email: string}>).map(a => a.email?.split("@")[0]).join(", ") : ""}`;
           }).join("\n\n");
