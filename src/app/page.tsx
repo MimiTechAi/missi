@@ -1546,7 +1546,7 @@ export default function Home() {
         <header className="flex-shrink-0 h-11 border-b border-zinc-100 flex items-center justify-between px-5">
           <div className="flex items-center gap-2.5">
             <span className="text-[13px] font-semibold text-zinc-800">MISSI</span>
-            <span className="text-[11px] text-zinc-400 font-medium">Powered by Mistral AI · Voxtral · ElevenLabs</span>
+            <span className="text-[11px] text-zinc-400 font-medium">4 Mistral Models · Voxtral STT · ElevenLabs TTS · 25 Tools</span>
           </div>
           <div className="flex items-center gap-1.5">
             {currentModel && (
@@ -1561,7 +1561,7 @@ export default function Home() {
             )}
             {stats.totalTools > 0 && (
               <span className="text-[11px] px-2 py-0.5 rounded-md bg-zinc-50 border border-zinc-200 text-zinc-500">
-                🛠 {stats.totalTools} tool{stats.totalTools !== 1 ? "s" : ""}
+                🛠 {stats.totalTools} tool{stats.totalTools !== 1 ? "s" : ""} used
               </span>
             )}
             {messages.length > 0 && (
@@ -1629,6 +1629,26 @@ export default function Home() {
                     </button>
                   ));
                 })()}
+              </div>
+            )}
+
+            {/* Capabilities strip */}
+            {voiceState === "idle" && (
+              <div className="mt-10 flex flex-wrap justify-center gap-3 max-w-lg">
+                {[
+                  { icon: "🔍", label: "Web Search" },
+                  { icon: "🌤️", label: "Weather" },
+                  { icon: "💻", label: "Code" },
+                  { icon: "📈", label: "Stocks" },
+                  { icon: "📝", label: "Documents" },
+                  { icon: "👁️", label: "Vision" },
+                  { icon: "🌐", label: "Translate" },
+                  { icon: "📖", label: "Wikipedia" },
+                ].map((cap) => (
+                  <span key={cap.label} className="text-[11px] text-zinc-400 flex items-center gap-1">
+                    <span className="text-[13px]">{cap.icon}</span>{cap.label}
+                  </span>
+                ))}
               </div>
             )}
 
@@ -1947,7 +1967,7 @@ export default function Home() {
             </div>
 
             <p className="text-[10px] text-zinc-400 text-center mt-2">
-              MISSI · 25 tools · 4 Mistral models · Voxtral · ElevenLabs · 10 languages
+              Built for the Mistral AI Worldwide Hackathon 2026 by MiMi Tech AI · 25 tools · 4 models
             </p>
           </div>
         </div>

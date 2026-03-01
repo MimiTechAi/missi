@@ -6,7 +6,7 @@ Built for the **Mistral AI Worldwide Hackathon 2026** by **MiMi Tech AI**.
 
 ## 🎬 Demo
 
-[Live Demo](https://missi-mimi.vercel.app) · [Video Demo](#)
+[Live Demo](https://jarvis-eta-smoky.vercel.app) · [Video Demo](#)
 
 ## 💡 What is MISSI?
 
