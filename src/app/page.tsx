@@ -1200,6 +1200,12 @@ export default function Home() {
       }
       await scanDir(dirHandle, dirHandle.name);
       setPermissions(prev => ({ ...prev, folderFiles: fileList }));
+      // Visual feedback
+      setMessages(prev => [...prev, {
+        role: "assistant" as const,
+        content: `📂 **Folder connected!** I can see ${fileList.length} files in "${dirHandle.name}". Try asking me to search for something.`,
+        timestamp: Date.now(),
+      }]);
     } catch {
       // User cancelled
     }
@@ -1222,6 +1228,12 @@ export default function Home() {
           const data = await res.json();
           if (data.access_token) {
             setPermissions(prev => ({ ...prev, gmailToken: data.access_token }));
+            // Visual feedback: add a system-like message confirming connection
+            setMessages(prev => [...prev, {
+              role: "assistant" as const,
+              content: "✅ **Gmail connected!** I can now search and read your emails. Try asking me to check your unread emails or search for specific messages.",
+              timestamp: Date.now(),
+            }]);
           }
         } catch {}
       }
@@ -1261,6 +1273,13 @@ export default function Home() {
               const verifyData = await verifyRes.json();
               const isConnected = verifyData.toolkits?.length > 0 || verifyRes.ok;
               setComposioConnections(prev => ({ ...prev, [toolkit]: isConnected }));
+              if (isConnected) {
+                setMessages(prev => [...prev, {
+                  role: "assistant" as const,
+                  content: `✅ **${toolkit.charAt(0).toUpperCase() + toolkit.slice(1)} connected!** I can now access your ${toolkit} data. Just ask me anything about it.`,
+                  timestamp: Date.now(),
+                }]);
+              }
             } catch {
               // Assume connected if verification fails (network error)
               setComposioConnections(prev => ({ ...prev, [toolkit]: true }));
