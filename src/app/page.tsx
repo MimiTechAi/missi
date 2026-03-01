@@ -1503,7 +1503,7 @@ export default function Home() {
             voiceState !== "idle"
               ? "bg-orange-50 text-orange-500 ring-1 ring-orange-200"
               : "text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
-          }`} title="Voice">
+          }`} title="Voice" aria-label="Toggle voice input">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
         </button>
         <button onClick={connectFolder}
@@ -1511,7 +1511,7 @@ export default function Home() {
             permissions.folderFiles && permissions.folderFiles.length > 0
               ? "bg-emerald-50 text-emerald-500 ring-1 ring-emerald-200"
               : "text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
-          }`} title="Files">
+          }`} title="Files" aria-label="Connect local files">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
         </button>
         <button onClick={connectGmail}
@@ -1519,7 +1519,7 @@ export default function Home() {
             permissions.gmailToken
               ? "bg-emerald-50 text-emerald-500 ring-1 ring-emerald-200"
               : "text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
-          }`} title="Gmail">
+          }`} title="Gmail" aria-label="Connect Gmail">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
         </button>
 
@@ -1550,7 +1550,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-1.5">
             {currentModel && (
-              <span className={`text-[11px] px-2 py-0.5 rounded-md bg-zinc-50 border border-zinc-200 font-medium ${
+              <span className={`text-[11px] px-2 py-0.5 rounded-md bg-zinc-50 border border-zinc-200 font-medium animate-fade-in ${
                 currentModel.model.includes("large") ? "text-violet-600" :
                 currentModel.model.includes("codestral") ? "text-emerald-600" :
                 currentModel.model.includes("pixtral") ? "text-pink-600" :
@@ -1623,8 +1623,8 @@ export default function Home() {
                   const prompts = promptsByLang[langKey] || promptsByLang["en"];
                   return prompts.map((p) => (
                     <button key={p.text} onClick={() => sendMessage(p.text)}
-                      className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 hover:border-zinc-300 text-left transition-all duration-150 group">
-                      <span className="text-lg">{p.icon}</span>
+                      className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 hover:border-zinc-300 border-l-2 border-l-orange-300 hover:border-l-orange-500 text-left transition-all duration-150 hover:shadow-sm group">
+                      <span className="text-xl">{p.icon}</span>
                       <span className="text-[13px] text-zinc-600 group-hover:text-zinc-900 leading-snug">{p.text}</span>
                     </button>
                   ));
@@ -1641,7 +1641,7 @@ export default function Home() {
           <div className="flex-1 overflow-y-auto bg-white">
             <div className="max-w-[720px] mx-auto px-5 py-6 space-y-6" aria-live="polite">
               {messages.map((msg, i) => (
-                <div key={i} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div key={i} className="animate-slide-in">
                   {/* USER MESSAGE */}
                   {msg.role === "user" && (
                     <div className="flex justify-end mb-5">
@@ -1772,7 +1772,13 @@ export default function Home() {
                         {/* Action buttons — like ChatGPT (copy, etc.) */}
                         <div className="mt-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
-                            onClick={() => { navigator.clipboard.writeText(msg.content); }}
+                            onClick={(e) => {
+                              navigator.clipboard.writeText(msg.content);
+                              const btn = e.currentTarget;
+                              btn.textContent = "✓";
+                              btn.classList.add("text-emerald-500");
+                              setTimeout(() => { btn.textContent = ""; btn.classList.remove("text-emerald-500"); btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'; }, 1500);
+                            }}
                             className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors" title="Copy">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                           </button>
@@ -1850,7 +1856,7 @@ export default function Home() {
                     <div key={i} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all duration-500 ease-out ${
                       t.status === "running"
                         ? "bg-amber-50 border-amber-200 shadow-sm shadow-amber-100"
-                        : "bg-emerald-50 border-emerald-200 shadow-sm shadow-emerald-100"
+                        : "bg-emerald-50 border-emerald-200 shadow-sm shadow-emerald-100 animate-fade-in"
                     }`} style={{
                       animation: "slideInUp 0.3s ease-out",
                       animationFillMode: "both",
@@ -1903,13 +1909,13 @@ export default function Home() {
           <div className="max-w-[720px] mx-auto">
             {/* Voice transcript */}
             {voiceState === "listening" && input && (
-              <div className="mb-2.5 px-3 py-2 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2.5">
+              <div className="mb-2.5 px-3 py-2 bg-red-50/70 border border-red-200 rounded-xl flex items-center gap-2.5 animate-fade-in backdrop-blur-sm">
                 <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse shrink-0" />
                 <p className="text-[14px] text-zinc-600 italic flex-1">&quot;{input}&quot;</p>
               </div>
             )}
 
-            <div className="flex items-end gap-2.5 bg-zinc-50 border border-zinc-200 rounded-2xl px-4 py-2.5 focus-within:border-zinc-400 focus-within:shadow-[0_0_0_3px_rgba(0,0,0,0.04)] transition-all duration-200">
+            <div className="flex items-end gap-2.5 bg-zinc-50 border border-zinc-200 rounded-2xl px-4 py-2.5 focus-within:border-orange-300 focus-within:shadow-[0_0_0_3px_rgba(251,146,60,0.08)] transition-all duration-200">
               {/* Image upload */}
               <button onClick={() => fileInputRef.current?.click()}
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-all flex-shrink-0" title="Upload image (Pixtral)">
@@ -1923,7 +1929,7 @@ export default function Home() {
                 value={input}
                 onChange={(e) => { setInput(e.target.value); (e.target as HTMLTextAreaElement).style.height = "auto"; (e.target as HTMLTextAreaElement).style.height = Math.min((e.target as HTMLTextAreaElement).scrollHeight, 200) + "px"; }}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-                placeholder="Ask MISSI anything…"
+                placeholder="Ask MISSI anything… or press Space to talk"
                 rows={1}
                 className="flex-1 bg-transparent text-[14px] text-zinc-800 placeholder:text-zinc-400 outline-none resize-none leading-relaxed min-h-[24px] max-h-[200px] overflow-y-auto py-0.5"
               />
@@ -1935,7 +1941,7 @@ export default function Home() {
 
               {/* Send button */}
               <button onClick={() => sendMessage(input)} disabled={isLoading || !input.trim()}
-                className="w-8 h-8 rounded-lg flex items-center justify-center bg-zinc-900 disabled:bg-zinc-200 disabled:text-zinc-400 text-white hover:bg-zinc-800 transition-all flex-shrink-0 disabled:cursor-not-allowed">
+                className="w-8 h-8 rounded-lg flex items-center justify-center bg-zinc-900 disabled:bg-zinc-200 disabled:text-zinc-400 text-white hover:bg-zinc-800 active:scale-95 transition-all duration-150 flex-shrink-0 disabled:cursor-not-allowed">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
               </button>
             </div>

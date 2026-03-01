@@ -29,9 +29,9 @@ export async function POST(req: NextRequest) {
           text,
           model_id: modelId,
           voice_settings: {
-            stability: 0.55,
-            similarity_boost: 0.8,
-            style: 0.2,
+            stability: 0.5,
+            similarity_boost: 0.82,
+            style: 0.25,
             use_speaker_boost: true,
           },
           optimize_streaming_latency: isEnglish ? 3 : 2,

@@ -529,7 +529,7 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
         }
         return `🔍 Search results for "${args.query}":\n\n${results.join("\n\n")}` || "No results found.";
       } catch {
-        return "Search temporarily unavailable.";
+        return "Web search is temporarily unavailable. I'll try to answer from my knowledge instead.";
       }
     }
 
@@ -569,7 +569,7 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
         
         return `**Weather in ${city}, ${country}:**\n🌡️ ${c.temperature_2m}°C (feels like ${c.apparent_temperature}°C)\n${condition}\n💨 Wind: ${c.wind_speed_10m} km/h ${windDir}\n💧 Humidity: ${c.relative_humidity_2m}%\n🌧️ Precipitation: ${c.precipitation} mm\n☀️ UV Index: ${c.uv_index} — ${uvLevel}\n\n**3-Day Forecast:**\n${forecastLines}\n\n🌅 Sunrise: ${d.sunrise[0].split("T")[1]} | 🌇 Sunset: ${d.sunset[0].split("T")[1]}`;
       } catch {
-        return "Weather service temporarily unavailable.";
+        return "Weather data is temporarily unavailable. Please try again in a moment.";
       }
     }
 
@@ -1118,7 +1118,7 @@ export async function POST(req: NextRequest) {
         try {
           // 1. Model selection
           const route = routeModel(lastUserMsg, hasImage);
-          controller.enqueue(sseEvent("model_selected", route));
+          controller.enqueue(sseEvent("model_selected", { ...route, startTime: Date.now() }));
 
           // 2. Planning
           const plan = await createPlan(lastUserMsg);
@@ -1218,7 +1218,7 @@ export async function POST(req: NextRequest) {
           let assistantMessage = response!.choices?.[0]?.message;
 
           if (!assistantMessage || (!assistantMessage.content && (!assistantMessage.toolCalls || assistantMessage.toolCalls.length === 0))) {
-            controller.enqueue(sseEvent("content", "I'm ready. How can I help you?"));
+            controller.enqueue(sseEvent("content", "I'm ready! Ask me anything — I can search the web, analyze data, write code, check weather, stocks, and much more. Or just say \"Hey MISSI\" to talk."));
             controller.enqueue(sseEvent("done", { toolResults: [], documents: [], usage: { totalRounds: 0, toolCalls: 0 } }));
             controller.close();
             return;
@@ -1278,7 +1278,7 @@ export async function POST(req: NextRequest) {
             if (!assistantMessage) break;
 
             if (!assistantMessage.content && (!assistantMessage.toolCalls || assistantMessage.toolCalls.length === 0)) {
-              assistantMessage = { ...assistantMessage, content: "I've completed the task." };
+              assistantMessage = { ...assistantMessage, content: "I've completed all the steps. Let me know if you need anything else!" };
               break;
             }
           }
@@ -1343,7 +1343,7 @@ export async function POST(req: NextRequest) {
               messages: [
                 {
                   role: "system",
-                  content: `Based on this AI response, generate exactly 3 brief follow-up questions or actions the user might want next. Each should be 3-8 words. Respond in the SAME LANGUAGE as the response. Return ONLY a JSON array of 3 strings. No markdown, no explanation. Example: ["Tell me more about X","Compare X with Y","Create a detailed report"]`,
+                  content: `Based on this AI response, generate exactly 3 natural follow-up questions or actions. Each 3-8 words. Match the response LANGUAGE. Vary between: a deeper question, a related topic, and an actionable next step. Return ONLY a JSON array. Example: ["How does this compare to X?","Show me the latest data","Create a summary report"]`,
                 },
                 { role: "user", content: finalContent.slice(0, 500) },
               ],

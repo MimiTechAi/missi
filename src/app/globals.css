@@ -82,3 +82,50 @@ body {
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
+
+/* Smooth scrollbar for chat */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
+}
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+  border-radius: 3px;
+}
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}
+
+/* Prose code blocks enhancement */
+.prose pre {
+  position: relative;
+  border: 1px solid #27272a;
+}
+.prose pre code {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* Tool card stagger animation */
+@keyframes toolSlideIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Pulse for active voice */
+@keyframes softPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-soft-pulse {
+  animation: softPulse 2s ease-in-out infinite;
+}
+
+/* Selection color */
+::selection {
+  background: rgba(251, 146, 60, 0.2);
+  color: inherit;
+}

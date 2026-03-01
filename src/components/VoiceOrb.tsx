@@ -227,7 +227,7 @@ export default function VoiceOrb({
 
     // ── State label ──
     const labels: Record<VoiceState, string> = {
-      idle: "TAP OR SAY 'HEY MISSI'",
+      idle: "TAP TO TALK",
       listening: "LISTENING…",
       thinking: "THINKING…",
       speaking: "TAP TO STOP",
@@ -235,7 +235,7 @@ export default function VoiceOrb({
     ctx.font = `600 ${9 * dpr}px ui-monospace, 'SF Mono', monospace`;
     ctx.textAlign = "center";
     ctx.letterSpacing = `${1.5 * dpr}px`;
-    ctx.fillStyle = `hsla(${config.hue}, 20%, 50%, 0.4)`;
+    ctx.fillStyle = `hsla(${config.hue}, 20%, 50%, 0.3)`;
     ctx.fillText(labels[state], cx, cy + orbR + 24 * dpr);
     ctx.letterSpacing = "0px";
 
