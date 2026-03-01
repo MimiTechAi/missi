@@ -881,7 +881,7 @@ export default function Home() {
     } catch {
       setMessages((prev) => [...prev, { role: "assistant", content: "Connection lost. Please try again.", timestamp: Date.now() }]);
       setVoiceState("idle");
-    } finally { setIsLoading(false); }
+    } finally { setIsLoading(false); setThinkingStatus(""); setActiveTools([]); }
   }, [messages, speakText, feedStreamingTts, flushStreamingTts]);
 
   // Keep ref in sync
@@ -1579,6 +1579,7 @@ export default function Home() {
           { id: "gmail", icon: "📧", label: "Gmail" },
           { id: "googlecalendar", icon: "📅", label: "Calendar" },
           { id: "github", icon: "🐙", label: "GitHub" },
+          { id: "slack", icon: "💬", label: "Slack" },
         ].map(tk => (
           <button key={tk.id} onClick={() => connectToolkit(tk.id)}
             className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors text-[13px] ${
@@ -1771,7 +1772,7 @@ export default function Home() {
                           </span>
                         )}
                         {msg.responseTime && (
-                          <span className="text-[11px] text-zinc-400">· {(msg.responseTime / 1000).toFixed(1)}s</span>
+                          <span className="text-[11px] text-zinc-400">· {(msg.responseTime / 1000).toFixed(1).replace('.0', '')}s</span>
                         )}
                         {msg.toolCalls && msg.toolCalls.length > 0 && (
                           <span className="text-[11px] text-zinc-400">· {msg.toolCalls.length} tool{msg.toolCalls.length !== 1 ? "s" : ""}</span>
@@ -2041,7 +2042,16 @@ export default function Home() {
                 value={input}
                 onChange={(e) => { setInput(e.target.value); (e.target as HTMLTextAreaElement).style.height = "auto"; (e.target as HTMLTextAreaElement).style.height = Math.min((e.target as HTMLTextAreaElement).scrollHeight, 200) + "px"; }}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-                placeholder="Ask MISSI anything… or press Space to talk"
+                placeholder={(() => {
+                  const lang = sttLang.split("-")[0];
+                  const placeholders: Record<string, string> = {
+                    de: "Frag MISSI was du willst… oder drück Leertaste zum Sprechen",
+                    fr: "Demandez à MISSI… ou appuyez sur Espace pour parler",
+                    es: "Pregunta a MISSI… o pulsa Espacio para hablar",
+                    en: "Ask MISSI anything… or press Space to talk",
+                  };
+                  return placeholders[lang] || placeholders.en;
+                })()}
                 rows={1}
                 className="flex-1 bg-transparent text-[16px] sm:text-[14px] text-zinc-800 placeholder:text-zinc-400 outline-none resize-none leading-relaxed min-h-[24px] max-h-[200px] overflow-y-auto py-0.5"
               />
