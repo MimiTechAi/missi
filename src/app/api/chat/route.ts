@@ -918,28 +918,59 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
 
     case "news_headlines": {
       try {
-        const topic = args.topic || "breaking";
+        const topic = args.topic || "breaking news";
         const country = args.country || "";
-        // Ensure we get English news unless country-specific
-        const langHint = country === "de" ? "deutsch" : country === "fr" ? "french" : country === "es" ? "español" : "";
-        const searchQuery = `${topic} news ${langHint} today ${new Date().toLocaleDateString("en-US")}`.trim();
-        const res = await fetch(
-          `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`,
-          { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" } }
-        );
-        const html = await res.text();
-        const blocks = html.match(/<div class="result results_links[\s\S]*?<\/div>\s*<\/div>/g) || [];
+        
+        // Use multiple news sources for reliability
         const headlines: string[] = [];
-        for (const block of blocks.slice(0, 10)) {
-          const titleMatch = block.match(/class="result__a"[^>]*>([\s\S]*?)<\/a>/);
-          const snippetMatch = block.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/a?/);
-          const title = titleMatch?.[1]?.replace(/<[^>]*>/g, "").trim() || "";
-          const snippet = snippetMatch?.[1]?.replace(/<[^>]*>/g, "").trim() || "";
-          if (title && title.length > 10) headlines.push(`📰 ${title}\n   ${snippet}`);
+        
+        // Source 1: Google News RSS
+        try {
+          const lang = country === "de" ? "de" : country === "fr" ? "fr" : "en";
+          const gl = country || "US";
+          const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(topic)}&hl=${lang}&gl=${gl}&ceid=${gl}:${lang}`;
+          const rssRes = await fetch(rssUrl, {
+            signal: AbortSignal.timeout(8000),
+            headers: { "User-Agent": "Mozilla/5.0" }
+          });
+          const rssText = await rssRes.text();
+          const items = rssText.match(/<item>([\s\S]*?)<\/item>/g) || [];
+          for (const item of items.slice(0, 8)) {
+            const title = item.match(/<title>([\s\S]*?)<\/title>/)?.[1]?.replace(/<!\[CDATA\[|\]\]>/g, "").trim() || "";
+            const source = item.match(/<source[^>]*>([\s\S]*?)<\/source>/)?.[1]?.trim() || "";
+            const pubDate = item.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1]?.trim() || "";
+            const timeAgo = pubDate ? (() => {
+              const diff = Date.now() - new Date(pubDate).getTime();
+              const hours = Math.floor(diff / 3600000);
+              return hours < 1 ? "just now" : hours < 24 ? `${hours}h ago` : `${Math.floor(hours/24)}d ago`;
+            })() : "";
+            if (title && title.length > 10) {
+              headlines.push(`📰 **${title}**${source ? `\n   _${source}_` : ""}${timeAgo ? ` · ${timeAgo}` : ""}`);
+            }
+          }
+        } catch { /* RSS failed, continue */ }
+        
+        if (headlines.length === 0) {
+          // Fallback: DuckDuckGo HTML search
+          const searchQuery = `${topic} news today`;
+          const res = await fetch(
+            `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`,
+            { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }, signal: AbortSignal.timeout(8000) }
+          );
+          const html = await res.text();
+          const blocks = html.match(/<a class="result__a"[^>]*>([\s\S]*?)<\/a>/g) || [];
+          for (const block of blocks.slice(0, 8)) {
+            const title = block.replace(/<[^>]*>/g, "").trim();
+            if (title && title.length > 10) headlines.push(`📰 ${title}`);
+          }
         }
-        return `📰 Top Headlines — ${topic}${country ? ` (${country.toUpperCase()})` : ""}:\n\n${headlines.slice(0, 8).join("\n\n")}` || "No headlines found.";
+        
+        const label = topic.charAt(0).toUpperCase() + topic.slice(1);
+        return headlines.length > 0
+          ? `📰 **Top Headlines — ${label}**${country ? ` (${country.toUpperCase()})` : ""}:\n\n${headlines.join("\n\n")}`
+          : `No news headlines found for "${topic}". Try a different topic or use web_search for broader results.`;
       } catch {
-        return "News service temporarily unavailable.";
+        return "News service temporarily unavailable. Try web_search as an alternative.";
       }
     }
 
