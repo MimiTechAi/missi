@@ -1828,7 +1828,7 @@ export default function Home() {
             <span className="text-[13px] font-semibold text-zinc-800">MISSI</span>
             {isOffline && <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-500 font-medium">Offline</span>}
             <span className="text-[11px] text-zinc-400/70 font-medium hidden sm:inline">
-              4 Mistral Models · Voxtral STT · ElevenLabs TTS · 10,000+ Tools
+              4 Mistral Models · Voxtral STT · ElevenLabs TTS · 10,000+ Integrations via Composio
             </span>
           </div>
           <div className="flex items-center gap-1.5">

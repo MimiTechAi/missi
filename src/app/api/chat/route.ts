@@ -135,9 +135,9 @@ async function createPlan(userMessage: string): Promise<string[] | null> {
       messages: [
         {
           role: "system",
-          content: `You are a task planner. Given a user request, break it into 2-5 concrete steps.
-Each step should be an action the AI agent can execute using its tools.
-Available tools: web_search, read_webpage, get_weather, get_time, calculate, run_code, create_document, translate, analyze_data, generate_code, summarize_text.
+          content: `You are MISSI's task planner. Break complex requests into 2-5 concrete execution steps.
+Available tools: web_search, read_webpage, get_weather, get_time, calculate, run_code, create_document, translate, analyze_data, generate_code, summarize_text, search_gmail, get_calendar, get_stock_price, get_crypto_price, wikipedia, news_headlines, unit_convert, define_word, random_fact.
+Rules: Each step = one tool call. Include search_gmail and get_calendar when relevant. Be specific about tool names.
 IMPORTANT: If the user asks for a report, summary, or document, ALWAYS include "Create a document with the findings" as the LAST step.
 Return ONLY a JSON array of step descriptions. No markdown, no explanation.
 Respond in the SAME LANGUAGE as the user's request.
@@ -1111,11 +1111,19 @@ async function executePermissionTool(name: string, args: Record<string, string>,
         // Handle various response formats
         const messages = data?.data?.messages || data?.data || [];
         if (!messages.length) return `No emails found for: "${args.query}".`;
-        return messages.slice(0, 5).map((m: Record<string, string>) => {
-          const subject = m.subject || m.messageText?.split("\n")[0]?.substring(0, 80) || "(no subject)";
+        return messages.slice(0, 5).map((m: Record<string, string>, i: number) => {
+          // Extract subject from messageText first line or subject field
+          const lines = (m.messageText || "").split("\n").filter((l: string) => l.trim());
+          const subject = m.subject || lines[0]?.substring(0, 80) || "(no subject)";
           const from = m.from || m.sender || "";
-          const snippet = (m.snippet || m.messageText || "").slice(0, 150);
-          return `📧 **${subject}**\n   From: ${from}\n   Preview: ${snippet}`;
+          // Clean preview — remove URLs, excessive whitespace
+          const rawPreview = (m.snippet || m.messageText || "").replace(/https?:\/\/\S+/g, "").replace(/\s+/g, " ").trim();
+          const preview = rawPreview.slice(0, 120);
+          const labels = (m.labelIds || "").toString();
+          const isUnread = labels.includes("UNREAD");
+          const isImportant = labels.includes("IMPORTANT");
+          
+          return `${i + 1}. ${isUnread ? "🔵" : "📧"}${isImportant ? " ⭐" : ""} **${subject}**\n   From: ${from}\n   Preview: ${preview}`;
         }).join("\n\n");
       } catch (e) {
         return `Gmail search failed: ${e instanceof Error ? e.message : "unknown"}. Click 📧 in sidebar to connect.`;
@@ -1204,12 +1212,34 @@ async function executePermissionTool(name: string, args: Record<string, string>,
         });
         if (data?.data?.event_data?.event_data) {
           const events = data.data.event_data.event_data;
-          if (!events.length) return "📅 No upcoming events found.";
+          if (!events.length) return "📅 No upcoming events in the next " + (args.days || 7) + " days.";
+          const now = new Date();
+          // Format events with relative time
           return events.slice(0, 10).map((e: Record<string, unknown>) => {
-            const start = (e.start as Record<string, string>)?.dateTime 
-              ? new Date((e.start as Record<string, string>).dateTime).toLocaleString("de-DE") 
-              : "";
-            return `📅 **${e.summary || "Untitled"}**\n   🕐 ${start}${(e.location as string) ? `\n   📍 ${e.location}` : ""}`;
+            const startObj = e.start as Record<string, string> | undefined;
+            const startDT = startObj?.dateTime ? new Date(startObj.dateTime) : null;
+            const endObj = e.end as Record<string, string> | undefined;
+            const endDT = endObj?.dateTime ? new Date(endObj.dateTime) : null;
+            
+            // Relative time
+            let timeLabel = "";
+            if (startDT) {
+              const diffMs = startDT.getTime() - now.getTime();
+              const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+              const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+              if (diffDays === 0 && diffHours >= 0) timeLabel = diffHours <= 1 ? "in " + Math.max(0, Math.floor(diffMs / 60000)) + " min" : "today";
+              else if (diffDays === 1) timeLabel = "tomorrow";
+              else if (diffDays > 1) timeLabel = "in " + diffDays + " days";
+              else timeLabel = "past";
+            }
+            
+            const dateStr = startDT ? startDT.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "short" }) : "";
+            const timeStr = startDT ? startDT.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "";
+            const endTimeStr = endDT ? endDT.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "";
+            const duration = startDT && endDT ? Math.round((endDT.getTime() - startDT.getTime()) / 60000) : 0;
+            const durationStr = duration > 0 ? (duration >= 60 ? Math.floor(duration / 60) + "h" + (duration % 60 > 0 ? " " + (duration % 60) + "min" : "") : duration + " min") : "";
+            
+            return `📅 **${e.summary || "Untitled"}** ${timeLabel ? "(" + timeLabel + ")" : ""}\n   🕐 ${dateStr} ${timeStr}${endTimeStr ? " – " + endTimeStr : ""}${durationStr ? " · " + durationStr : ""}${(e.location as string) ? "\n   📍 " + e.location : ""}${(e.attendees as Array<{email: string}> || []).length > 0 ? "\n   👥 " + (e.attendees as Array<{email: string}>).map(a => a.email?.split("@")[0]).join(", ") : ""}`;
           }).join("\n\n");
         }
         return "📅 Calendar not connected. Click 📅 in sidebar.";
@@ -1632,12 +1662,12 @@ export async function POST(req: NextRequest) {
               messages: [
                 {
                   role: "system",
-                  content: `Based on this AI response, generate 3 follow-up suggestions. Rules:
-1. Each suggestion is 3-8 words
-2. Match the SAME LANGUAGE as the response
-3. Make them genuinely useful and specific (not generic)
-4. Mix: one deeper question, one related action, one new angle
-5. Return ONLY a JSON array, no markdown
+                  content: `Generate 3 follow-up actions based on this response. Rules:
+1. 3-8 words each, actionable (start with a verb)
+2. Match the EXACT language of the response (German → German, English → English)
+3. Mix: (a) dive deeper into the topic, (b) a related tool action, (c) a creative twist
+4. Reference specific data from the response (names, numbers, topics)
+5. Return ONLY a JSON array like ["action 1","action 2","action 3"]
 Example: ["Vergleiche das mit GPT-4","Zeig mir den Trend","Erstelle einen Bericht"]`,
                 },
                 { role: "user", content: finalContent.slice(0, 500) },
