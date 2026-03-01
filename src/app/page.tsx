@@ -1293,7 +1293,11 @@ export default function Home() {
 
   // ── Composio: Connect external toolkit (Gmail, Calendar, GitHub, etc.) ──
   const connectToolkit = useCallback(async (toolkit: string) => {
-    // Gmail and all toolkits go through Composio for consistent connection management
+    // Gmail: use direct OAuth (Composio Gmail returns empty results)
+    if (toolkit === "gmail") {
+      connectGmail();
+      return;
+    }
     setConnectingToolkit(toolkit);
     try {
       const res = await fetch("/api/composio", {

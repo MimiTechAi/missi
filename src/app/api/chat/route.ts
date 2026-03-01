@@ -15,19 +15,29 @@ async function composioExecute(toolName: string, userId: string, params: Record<
   const composio = await getComposioClient();
   if (!composio) throw new Error("COMPOSIO_API_KEY not set");
   try {
+    console.log("[COMPOSIO] Executing:", toolName, "for user:", userId, "params:", JSON.stringify(params));
     const result = await composio.tools.execute(toolName, {
       userId,
       arguments: params,
     });
+    console.log("[COMPOSIO] SDK Result:", JSON.stringify(result).substring(0, 500));
     return result;
   } catch (e) {
+    console.error("[COMPOSIO] SDK Error:", e instanceof Error ? e.message : e);
     // Fallback to direct API if SDK fails
-    const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": process.env.COMPOSIO_API_KEY || "" },
-      body: JSON.stringify({ tool_name: toolName, input: params, user_id: userId }),
-    });
-    return await res.json();
+    try {
+      const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": process.env.COMPOSIO_API_KEY || "" },
+        body: JSON.stringify({ tool_name: toolName, input: params, user_id: userId }),
+      });
+      const data = await res.json();
+      console.log("[COMPOSIO] Direct API Result:", JSON.stringify(data).substring(0, 500));
+      return data;
+    } catch (e2) {
+      console.error("[COMPOSIO] Direct API also failed:", e2);
+      throw e;
+    }
   }
 }
 import { NextRequest } from "next/server";
@@ -1101,8 +1111,14 @@ async function executePermissionTool(name: string, args: Record<string, string>,
         const data = await composioExecute("GMAIL_SEARCH_EMAILS", "missi_demo_user", {
           query: args.query, max_results: args.limit || 5,
         });
-        const emails = data?.data || (Array.isArray(data) ? data : []);
-        if (!emails.length) return `No emails found for: "${args.query}". Make sure Gmail is connected via the sidebar 📧.`;
+        console.log("[search_gmail] Raw result:", JSON.stringify(data).substring(0, 1000));
+        // Handle various response formats
+        const emails = data?.data || data?.response_data?.data || data?.result?.data || (Array.isArray(data) ? data : []);
+        if (!emails.length) {
+          // Return the raw response for debugging
+          const debugInfo = JSON.stringify(data).substring(0, 200);
+          return `No emails found for: "${args.query}". Debug: ${debugInfo}`;
+        }
         return emails.map((m: Record<string, string>) =>
           `📧 **${m.subject || "No subject"}**\n   From: ${m.from || m.sender || "Unknown"}\n   Date: ${m.date || ""}\n   Preview: ${(m.snippet || m.body || "").slice(0, 150)}`
         ).join("\n\n");
