@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
           : message;
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let streamResponse: any;
         if (conversationId) {
           streamResponse = await client.beta.conversations.appendStream({
