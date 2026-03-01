@@ -1548,7 +1548,7 @@ export default function Home() {
             useAgentsAPI
               ? "bg-violet-50 text-violet-500 ring-1 ring-violet-200"
               : "text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
-          }`} title={useAgentsAPI ? "Agents API (v2) — Built-in tools" : "Manual Tools (v1) — 25 custom tools"}>
+          }`} title={useAgentsAPI ? "v2: Mistral Agents API (web search, code, images built-in)" : "v1: 25 custom tools (DuckDuckGo, Yahoo, etc.)"}>
           {useAgentsAPI ? "v2" : "v1"}
         </button>
         <button onClick={() => { setMessages([]); saveMessages([]); setConversationId(null); }}
@@ -1565,7 +1565,7 @@ export default function Home() {
           <div className="flex items-center gap-2.5">
             <span className="text-[13px] font-semibold text-zinc-800">MISSI</span>
             <span className="text-[11px] text-zinc-400 font-medium">
-              {useAgentsAPI ? "Agents API · Web Search · Code Interpreter · Image Gen" : "4 Mistral Models · Voxtral STT · ElevenLabs TTS · 25 Tools"}
+              {useAgentsAPI ? "🧠 Agents API · Web Search · Code Interpreter · Image Generation" : "4 Mistral Models · Voxtral STT · ElevenLabs TTS · 25 Tools"}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -1607,7 +1607,11 @@ export default function Home() {
           <div className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
             <div className="scale-110 sm:scale-100 transition-transform"><VoiceOrb state={voiceState} audioLevel={audioLevel} size={100} onClick={handleOrbClick} /></div>
             <h2 className="mt-5 sm:mt-6 text-[20px] sm:text-[22px] font-semibold text-zinc-800 tracking-tight">What can I help with?</h2>
-            <p className="mt-1.5 text-[13px] text-zinc-400">Voice-first AI operating system powered by Mistral</p>
+            <p className="mt-1.5 text-[13px] text-zinc-400">
+              {useAgentsAPI
+                ? "Powered by Mistral Agents API — Native Web Search, Code Interpreter & Image Generation"
+                : "Voice-first AI operating system powered by Mistral"}
+            </p>
             <p className="mt-0.5 text-[11px] text-zinc-300">25 Tools · 4 Models · Voxtral · ElevenLabs · Vision · 10 Languages</p>
 
             {voiceState === "idle" && (
@@ -1655,7 +1659,13 @@ export default function Home() {
             {/* Capabilities strip */}
             {voiceState === "idle" && (
               <div className="mt-7 flex flex-wrap justify-center gap-x-4 gap-y-1 max-w-lg">
-                {[
+                {(useAgentsAPI ? [
+                  { icon: "🔍", label: "Web Search" },
+                  { icon: "💻", label: "Code Interpreter" },
+                  { icon: "🎨", label: "Image Generation" },
+                  { icon: "📄", label: "Citations" },
+                  { icon: "💬", label: "Persistent Memory" },
+                ] : [
                   { icon: "🔍", label: "Search" },
                   { icon: "🌤️", label: "Weather" },
                   { icon: "💻", label: "Code" },
@@ -1663,7 +1673,7 @@ export default function Home() {
                   { icon: "📝", label: "Reports" },
                   { icon: "👁️", label: "Vision" },
                   { icon: "🌐", label: "Translate" },
-                ].map((cap) => (
+                ]).map((cap) => (
                   <span key={cap.label} className="text-[11px] text-zinc-400 flex items-center gap-1">
                     <span className="text-[12px]">{cap.icon}</span>{cap.label}
                   </span>
