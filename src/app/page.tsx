@@ -1293,11 +1293,7 @@ export default function Home() {
 
   // ── Composio: Connect external toolkit (Gmail, Calendar, GitHub, etc.) ──
   const connectToolkit = useCallback(async (toolkit: string) => {
-    // Gmail: try direct OAuth first (better UX, no Composio dependency)
-    if (toolkit === "gmail" && !composioConnections["gmail"]) {
-      connectGmail();
-      return;
-    }
+    // Gmail and all toolkits go through Composio for consistent connection management
     setConnectingToolkit(toolkit);
     try {
       const res = await fetch("/api/composio", {
@@ -1581,6 +1577,18 @@ export default function Home() {
     }
   };
 
+  // Brand icons for sidebar integrations
+  const brandIcon = (id: string, size = 18) => {
+    const icons: Record<string, React.ReactNode> = {
+      gmail: <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><path d="M2 6l10 7 10-7" stroke="#EA4335" strokeWidth="2"/><rect x="2" y="5" width="20" height="14" rx="2" stroke="#4285F4" strokeWidth="1.5" fill="none"/><path d="M2 5l10 7" stroke="#FBBC05" strokeWidth="1.5"/><path d="M22 5l-10 7" stroke="#34A853" strokeWidth="1.5"/></svg>,
+      calendar: <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke="#4285F4" strokeWidth="1.5"/><path d="M3 10h18" stroke="#4285F4" strokeWidth="1.5"/><path d="M8 2v4M16 2v4" stroke="#4285F4" strokeWidth="1.5" strokeLinecap="round"/><circle cx="8" cy="15" r="1.5" fill="#EA4335"/><circle cx="12" cy="15" r="1.5" fill="#FBBC05"/><circle cx="16" cy="15" r="1.5" fill="#34A853"/></svg>,
+      github: <svg width={size} height={size} viewBox="0 0 24 24" fill="#24292e"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>,
+      slack: <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><path d="M5.042 15.165a2.528 2.528 0 01-2.52 2.523A2.528 2.528 0 010 15.165a2.527 2.527 0 012.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 012.521-2.52 2.527 2.527 0 012.521 2.52v6.313A2.528 2.528 0 018.834 24a2.528 2.528 0 01-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 01-2.521-2.52A2.528 2.528 0 018.834 0a2.528 2.528 0 012.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 012.521 2.521 2.528 2.528 0 01-2.521 2.521H2.522A2.528 2.528 0 010 8.834a2.528 2.528 0 012.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 012.522-2.521A2.528 2.528 0 0124 8.834a2.528 2.528 0 01-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 01-2.523 2.521 2.527 2.527 0 01-2.52-2.521V2.522A2.527 2.527 0 0115.165 0a2.528 2.528 0 012.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 012.523 2.522A2.528 2.528 0 0115.165 24a2.527 2.527 0 01-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 01-2.52-2.523 2.526 2.526 0 012.52-2.52h6.313A2.527 2.527 0 0124 15.165a2.528 2.528 0 01-2.522 2.523h-6.313z" fill="#E01E5A"/></svg>,
+      notion: <svg width={size} height={size} viewBox="0 0 24 24" fill="#000"><path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L18.38 2.33c-.42-.326-.98-.7-2.055-.607L3.01 2.87c-.466.046-.56.28-.374.466l1.823 1.372zm.793 3.358v13.889c0 .746.373 1.026 1.213.98l14.523-.84c.84-.046.933-.56.933-1.166V6.732c0-.606-.233-.933-.746-.886l-15.176.886c-.56.047-.747.327-.747.834zm14.337.745c.093.42 0 .84-.42.886l-.7.14v10.264c-.607.327-1.166.514-1.633.514-.746 0-.933-.234-1.493-.934l-4.577-7.186v6.953l1.446.327s0 .84-1.166.84l-3.218.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.451-.233 4.764 7.279v-6.44l-1.213-.14c-.093-.513.28-.886.746-.933l3.226-.186z"/></svg>,
+    };
+    return icons[id] || <span className="text-lg">{id === "gmail" ? "📧" : "🔗"}</span>;
+  };
+
   // FIX #22: Copy code to clipboard
   const copyToClipboard = useCallback((text: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -1691,11 +1699,11 @@ export default function Home() {
         <div className="w-6 border-t border-zinc-200/60 my-1" />
         {/* Composio Integrations — 10,000+ tools */}
         {[
-          { id: "gmail", icon: "📧", label: "Gmail" },
-          { id: "googlecalendar", icon: "📅", label: "Calendar" },
-          { id: "github", icon: "🐙", label: "GitHub" },
-          { id: "slack", icon: "💬", label: "Slack" },
-          { id: "notion", icon: "📝", label: "Notion" },
+          { id: "gmail", icon: "gmail", label: "Gmail" },
+          { id: "googlecalendar", icon: "calendar", label: "Calendar" },
+          { id: "github", icon: "github", label: "GitHub" },
+          { id: "slack", icon: "slack", label: "Slack" },
+          { id: "notion", icon: "notion", label: "Notion" },
         ].map(tk => (
           <button key={tk.id} onClick={() => connectToolkit(tk.id)}
             className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 text-[13px] sidebar-icon ${

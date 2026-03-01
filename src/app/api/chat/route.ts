@@ -1366,8 +1366,8 @@ export async function POST(req: NextRequest) {
           if (permContext.location) connectedServices.push("Location: " + permContext.location);
 
           const servicesContext = connectedServices.length > 0
-            ? "\n\nCURRENTLY CONNECTED SERVICES (user has authorized these — use them directly without asking to connect):\n" + connectedServices.map(s => "- " + s).join("\n") + "\n\nIMPORTANT: When a service is listed above, USE the corresponding tool directly. Do NOT tell the user to \"connect first\" or \"click the sidebar icon\" — it is ALREADY connected and authorized."
-            : "\n\nNO EXTERNAL SERVICES CONNECTED YET. If the user asks about Gmail, Calendar, GitHub, etc., tell them to click the corresponding icon in the left sidebar to authorize access first.";
+            ? "\n\nCURRENTLY CONNECTED SERVICES (authorized and ready):\n" + connectedServices.map(s => "- " + s).join("\n") + "\n\nCRITICAL RULES:\n1. NEVER tell the user to 'connect via sidebar' or 'click the icon' for ANY service listed above — they are ALREADY connected.\n2. When user asks about email → call search_gmail tool IMMEDIATELY.\n3. When user asks about calendar → call get_calendar tool IMMEDIATELY.\n4. When a tool returns empty results, say 'No results found' — do NOT say 'you need to connect first'.\n5. If a tool fails with an auth error, THEN suggest reconnecting via sidebar."
+            : "\n\nNO EXTERNAL SERVICES CONNECTED YET.\nWhen user asks about Gmail, Calendar, GitHub, etc.:\n1. Try calling the tool anyway — Composio may have a valid connection.\n2. If the tool returns an auth error, THEN tell the user to click the corresponding icon in the sidebar to connect.\n3. NEVER refuse to try a tool — always attempt it first.";
 
           // 3. Build messages
           const fullMessages: Array<Record<string, unknown>> = [
