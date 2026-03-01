@@ -219,6 +219,8 @@ export default function Home() {
   }>({ gmailToken: null, folderFiles: null });
   const [sttLang, setSttLang] = useState("en-US");
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [composioConnections, setComposioConnections] = useState<Record<string, boolean>>({});
+  const [connectingToolkit, setConnectingToolkit] = useState<string | null>(null);
   
   // Auto-detect browser language on mount
   useEffect(() => {
@@ -1230,6 +1232,38 @@ export default function Home() {
     window.addEventListener("message", handler);
   }, []);
 
+  // ── Composio: Connect external toolkit (Gmail, Calendar, GitHub, etc.) ──
+  const connectToolkit = useCallback(async (toolkit: string) => {
+    setConnectingToolkit(toolkit);
+    try {
+      const res = await fetch("/api/composio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "connect", toolkit }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        // Open connect link in popup
+        const popup = window.open(data.url, `connect_${toolkit}`, "width=600,height=700");
+        // Poll for completion
+        const checkInterval = setInterval(async () => {
+          if (popup?.closed) {
+            clearInterval(checkInterval);
+            setComposioConnections(prev => ({ ...prev, [toolkit]: true }));
+            setConnectingToolkit(null);
+          }
+        }, 1000);
+        // Timeout after 2 minutes
+        setTimeout(() => { clearInterval(checkInterval); setConnectingToolkit(null); }, 120000);
+      } else if (data.error) {
+        setConnectingToolkit(null);
+        console.error("Composio connect error:", data.message);
+      }
+    } catch {
+      setConnectingToolkit(null);
+    }
+  }, []);
+
   // ── Sound Effects (Web Audio API) ──
   const playSound = useCallback((type: "activate" | "success" | "error") => {
     try {
@@ -1528,14 +1562,23 @@ export default function Home() {
           }`} title="Files" aria-label="Connect local files">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
         </button>
-        <button onClick={connectGmail}
-          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-            permissions.gmailToken
-              ? "bg-emerald-50 text-emerald-500 ring-1 ring-emerald-200"
-              : "text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
-          }`} title="Gmail" aria-label="Connect Gmail">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-        </button>
+        {/* Composio Integrations — 10,000+ tools */}
+        {[
+          { id: "gmail", icon: "📧", label: "Gmail" },
+          { id: "googlecalendar", icon: "📅", label: "Calendar" },
+          { id: "github", icon: "🐙", label: "GitHub" },
+        ].map(tk => (
+          <button key={tk.id} onClick={() => connectToolkit(tk.id)}
+            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors text-[13px] ${
+              composioConnections[tk.id]
+                ? "bg-emerald-50 ring-1 ring-emerald-200"
+                : connectingToolkit === tk.id
+                ? "bg-amber-50 ring-1 ring-amber-200 animate-pulse"
+                : "hover:bg-zinc-100"
+            }`} title={`${composioConnections[tk.id] ? "✓ " : ""}${tk.label}`} aria-label={`Connect ${tk.label}`}>
+            {tk.icon}
+          </button>
+        ))}
 
         {/* Spacer */}
         <div className="flex-1" />
@@ -1561,7 +1604,7 @@ export default function Home() {
           <div className="flex items-center gap-2.5">
             <span className="text-[13px] font-semibold text-zinc-800">MISSI</span>
             <span className="text-[11px] text-zinc-400 font-medium">
-              4 Mistral Models · Voxtral STT · ElevenLabs TTS · 25 Tools
+              4 Mistral Models · Voxtral STT · ElevenLabs TTS · 10,000+ Tools
             </span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -1606,7 +1649,7 @@ export default function Home() {
             <p className="mt-1.5 text-[13px] text-zinc-400">
               Voice-first AI operating system powered by Mistral
             </p>
-            <p className="mt-0.5 text-[11px] text-zinc-300">25 Tools · 4 Models · Voxtral · ElevenLabs · Vision · 10 Languages</p>
+            <p className="mt-0.5 text-[11px] text-zinc-300">10,000+ Tools · 4 Models · Voxtral · ElevenLabs · Vision · 10 Languages</p>
 
             {voiceState === "idle" && (
               <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-w-md w-full">
@@ -1655,12 +1698,12 @@ export default function Home() {
               <div className="mt-7 flex flex-wrap justify-center gap-x-4 gap-y-1 max-w-lg">
                 {[
                   { icon: "🔍", label: "Search" },
-                  { icon: "🌤️", label: "Weather" },
+                  { icon: "📧", label: "Gmail" },
+                  { icon: "📅", label: "Calendar" },
                   { icon: "💻", label: "Code" },
                   { icon: "📈", label: "Finance" },
-                  { icon: "📝", label: "Reports" },
                   { icon: "👁️", label: "Vision" },
-                  { icon: "🌐", label: "Translate" },
+                  { icon: "🌐", label: "10K+ Tools" },
                 ].map((cap) => (
                   <span key={cap.label} className="text-[11px] text-zinc-400 flex items-center gap-1">
                     <span className="text-[12px]">{cap.icon}</span>{cap.label}
@@ -1984,7 +2027,7 @@ export default function Home() {
             </div>
 
             <p className="text-[10px] text-zinc-400 text-center mt-2">
-              Built for the Mistral AI Worldwide Hackathon 2026 by MiMi Tech AI · 25 tools · 4 models
+              Built for the Mistral AI Worldwide Hackathon 2026 by MiMi Tech AI · 10,000+ tools via Composio · 4 Mistral models
             </p>
           </div>
         </div>

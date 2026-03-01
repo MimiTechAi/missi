@@ -128,6 +128,23 @@ Drag & drop or upload any image — MISSI uses Pixtral Large for detailed analys
 - **Animated VoiceOrb** — State-aware (idle/listening/thinking/speaking) with particles
 - **Keyboard Shortcuts** — Space (voice), Escape (stop), Cmd+K (focus input)
 
+## 🔌 External Integrations (Composio)
+
+MISSI connects to **10,000+ external tools** via [Composio](https://composio.dev):
+
+| Integration | Features |
+|---|---|
+| 📧 **Gmail** | Search, read, send emails |
+| 📅 **Google Calendar** | View, create, manage events |
+| 🐙 **GitHub** | Issues, PRs, repos |
+| 💬 **Slack** | Messages, channels |
+| 📝 **Notion** | Pages, databases |
+| 📁 **Google Drive** | Files, sharing |
+| 🎵 **Spotify** | Playlists, playback |
+| And **10,000+ more** | via Composio's managed OAuth |
+
+One-click connection — Composio handles all OAuth flows, token refresh, and credential management.
+
 ## 🏗️ Architecture
 
 ```

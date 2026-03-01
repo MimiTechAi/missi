@@ -1049,7 +1049,7 @@ LANGUAGE:
 - The TTS will handle any language
 
 CAPABILITIES:
-You have 25 tools at your disposal. ALWAYS use the appropriate tool — NEVER answer from memory when a tool exists for the task:
+You have 25 built-in tools PLUS access to 10,000+ external integrations via Composio (Gmail, Google Calendar, GitHub, Slack, Notion, and more). ALWAYS use the appropriate tool — NEVER answer from memory when a tool exists for the task:
 
 MANDATORY TOOL USAGE (you MUST call the tool, do NOT answer from memory):
 - "weather" / "Wetter" / "météo" / "tiempo" → MUST use get_weather
@@ -1108,7 +1108,9 @@ CRITICAL RULES:
 - Structure long responses with clear headers and organized sections like a professional research report
 - Use numbers and specific facts, not vague statements
 - Suggest relevant follow-up actions after completing a task
-- For multi-step tasks, chain tools intelligently: search → read → analyze → create_document`;
+- When a user asks to connect Gmail, Calendar, GitHub, or other services, tell them to click the corresponding icon in the sidebar to authorize access via Composio.
+
+For multi-step tasks, chain tools intelligently: search → read → analyze → create_document`;
 
 
 // ============================================================
