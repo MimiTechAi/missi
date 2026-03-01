@@ -1,4 +1,35 @@
 import { Mistral } from "@mistralai/mistralai";
+
+// Composio SDK singleton for tool execution
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _composio: any = null;
+async function getComposioClient() {
+  if (_composio) return _composio;
+  if (!process.env.COMPOSIO_API_KEY) return null;
+  const { Composio } = await import("@composio/core");
+  _composio = new Composio({ apiKey: process.env.COMPOSIO_API_KEY });
+  return _composio;
+}
+
+async function composioExecute(toolName: string, userId: string, params: Record<string, unknown>) {
+  const composio = await getComposioClient();
+  if (!composio) throw new Error("COMPOSIO_API_KEY not set");
+  try {
+    const result = await composio.tools.execute(toolName, {
+      userId,
+      arguments: params,
+    });
+    return result;
+  } catch (e) {
+    // Fallback to direct API if SDK fails
+    const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": process.env.COMPOSIO_API_KEY || "" },
+      body: JSON.stringify({ tool_name: toolName, input: params, user_id: userId }),
+    });
+    return await res.json();
+  }
+}
 import { NextRequest } from "next/server";
 
 const mistral = new Mistral({
@@ -1064,27 +1095,19 @@ async function executePermissionTool(name: string, args: Record<string, string>,
           return `Gmail search error: ${e instanceof Error ? e.message : "unknown"}. Try reconnecting via sidebar.`;
         }
       }
-      // Priority 2: Use Composio
+      // Priority 2: Use Composio SDK (properly authenticated)
       if (!process.env.COMPOSIO_API_KEY) return "Gmail not connected. Click the 📧 icon in the sidebar to connect Gmail.";
       try {
-        const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": process.env.COMPOSIO_API_KEY || "" },
-          body: JSON.stringify({ tool_name: "GMAIL_SEARCH_EMAILS", user_id: "missi_demo_user",
-            input: { query: args.query, max_results: args.limit || 5 },
-          }),
+        const data = await composioExecute("GMAIL_SEARCH_EMAILS", "missi_demo_user", {
+          query: args.query, max_results: args.limit || 5,
         });
-        const data = await res.json();
-        if (data?.data) {
-          const emails = data.data;
-          if (!emails.length) return `No emails found for: "${args.query}"`;
-          return emails.map((m: Record<string, string>) =>
-            `📧 **${m.subject || "No subject"}**\n   From: ${m.from || m.sender || "Unknown"}\n   Date: ${m.date || ""}\n   Preview: ${(m.snippet || m.body || "").slice(0, 150)}`
-          ).join("\n\n");
-        }
-        return `No emails found for: "${args.query}". Make sure Gmail is connected via the sidebar.`;
-      } catch {
-        return "Gmail search failed. Please click the 📧 icon in the sidebar to connect Gmail first.";
+        const emails = data?.data || (Array.isArray(data) ? data : []);
+        if (!emails.length) return `No emails found for: "${args.query}". Make sure Gmail is connected via the sidebar 📧.`;
+        return emails.map((m: Record<string, string>) =>
+          `📧 **${m.subject || "No subject"}**\n   From: ${m.from || m.sender || "Unknown"}\n   Date: ${m.date || ""}\n   Preview: ${(m.snippet || m.body || "").slice(0, 150)}`
+        ).join("\n\n");
+      } catch (e) {
+        return `Gmail search failed: ${e instanceof Error ? e.message : "unknown"}. Click 📧 in sidebar to connect.`;
       }
     }
 
@@ -1114,24 +1137,19 @@ async function executePermissionTool(name: string, args: Record<string, string>,
           return `Gmail read error: ${e instanceof Error ? e.message : "unknown"}`;
         }
       }
-      // Priority 2: Composio
+      // Priority 2: Composio SDK
       if (!process.env.COMPOSIO_API_KEY) return "Gmail not connected. Click 📧 in sidebar to connect.";
       try {
-        const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": process.env.COMPOSIO_API_KEY || "" },
-          body: JSON.stringify({ tool_name: "GMAIL_GET_EMAIL", user_id: "missi_demo_user",
-            input: { message_id: args.id || args.messageId },
-          }),
+        const data = await composioExecute("GMAIL_GET_EMAIL", "missi_demo_user", {
+          message_id: args.id || args.messageId,
         });
-        const data = await res.json();
-        if (data?.data) {
-          const email = data.data;
+        const email = data?.data || data;
+        if (email) {
           return `📧 **${email.subject || "No subject"}**\nFrom: ${email.from || "Unknown"}\nDate: ${email.date || ""}\n\n${(email.body || email.snippet || "No content").slice(0, 3000)}`;
         }
         return "Could not read email. Make sure Gmail is connected via the sidebar.";
-      } catch {
-        return "Gmail read failed. Please connect Gmail via the 📧 icon in the sidebar.";
+      } catch (e) {
+        return `Gmail read failed: ${e instanceof Error ? e.message : "unknown"}. Connect via sidebar.`;
       }
     }
 
@@ -1147,25 +1165,21 @@ async function executePermissionTool(name: string, args: Record<string, string>,
         }
         return `No local files matching "${args.query}" in the connected folder (${files.length} files indexed).`;
       }
-      // Priority 2: Composio Google Drive
+      // Priority 2: Composio Google Drive (SDK)
       if (!process.env.COMPOSIO_API_KEY) return "No folder connected. Click the 📁 icon in the sidebar to grant folder access.";
       try {
-        const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": process.env.COMPOSIO_API_KEY || "" },
-          body: JSON.stringify({ tool_name: "GOOGLEDRIVE_SEARCH_FILES", user_id: "missi_demo_user",
-            input: { query: args.query, max_results: 10 },
-          }),
+        const data = await composioExecute("GOOGLEDRIVE_SEARCH_FILES", "missi_demo_user", {
+          query: args.query, max_results: 10,
         });
-        const data = await res.json();
-        if (data?.data?.length) {
-          return data.data.map((f: Record<string, string>) =>
+        const files = data?.data || (Array.isArray(data) ? data : []);
+        if (files.length) {
+          return files.map((f: Record<string, string>) =>
             `🗂️ **${f.name || f.title}** (${f.mimeType || "file"})\n   📎 ${f.webViewLink || "No link"}`
           ).join("\n\n");
         }
         return `No files found for "${args.query}". Connect Google Drive via sidebar.`;
-      } catch {
-        return "File search failed. Connect Google Drive via sidebar first.";
+      } catch (e) {
+        return `File search failed: ${e instanceof Error ? e.message : "unknown"}`;
       }
     }
 
