@@ -497,39 +497,54 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
   switch (name) {
     case "web_search": {
       try {
-        const res = await fetch(
-          `https://html.duckduckgo.com/html/?q=${encodeURIComponent(args.query)}`,
-          {
-            headers: {
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            },
-          }
-        );
-        const html = await res.text();
-        // Extract result links and snippets
-        const resultBlocks = html.match(/<div class="result results_links[\s\S]*?<\/div>\s*<\/div>/g) || [];
+        // Use Mistral's native web search via Conversations API for reliable results + citations
+        const searchResponse = await mistral.beta.conversations.start({
+          model: "mistral-large-latest",
+          inputs: `Search the web for: ${args.query}. Return the top results with titles, snippets, and URLs.`,
+          tools: [{ type: "web_search" as const }],
+          store: false,
+        });
+
+        // Extract text and references from the response
         const results: string[] = [];
-        
-        for (const block of resultBlocks.slice(0, 8)) {
-          const titleMatch = block.match(/class="result__a"[^>]*>([\s\S]*?)<\/a>/);
-          const snippetMatch = block.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/a?/);
-          const urlMatch = block.match(/href="([^"]*?)"/);
-          const title = titleMatch?.[1]?.replace(/<[^>]*>/g, "").trim() || "";
-          const snippet = snippetMatch?.[1]?.replace(/<[^>]*>/g, "").trim() || "";
-          const url = urlMatch?.[1] || "";
-          if (title) results.push(`• ${title}\n  ${snippet}${url ? `\n  🔗 ${url}` : ""}`);
+        const entries = searchResponse.outputs || [];
+        for (const entry of entries) {
+          if (entry.type === "message.output" && Array.isArray(entry.content)) {
+            for (const chunk of entry.content) {
+              if (chunk.type === "text" && chunk.text) {
+                results.push(chunk.text);
+              } else if (chunk.type === "tool_reference" && chunk.url) {
+                results.push(`🔗 ${chunk.url} — ${chunk.title || ""}`);
+              }
+            }
+          }
         }
 
-        if (results.length === 0) {
-          // Fallback: simpler extraction
-          const links = html.match(/<a rel="nofollow" class="result__a" href="[^"]*">.*?<\/a>/g);
-          if (links) {
-            return links.slice(0, 8).map((r) => r.replace(/<[^>]*>/g, "")).join("\n");
-          }
+        if (results.length > 0) {
+          return `🔍 Search results for "${args.query}":\n\n${results.join("\n")}`;
         }
-        return `🔍 Search results for "${args.query}":\n\n${results.join("\n\n")}` || "No results found.";
+        return "No results found.";
       } catch {
-        return "Web search is temporarily unavailable. I'll try to answer from my knowledge instead.";
+        // Fallback to DuckDuckGo if Conversations API fails
+        try {
+          const res = await fetch(
+            `https://html.duckduckgo.com/html/?q=${encodeURIComponent(args.query)}`,
+            { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" } }
+          );
+          const html = await res.text();
+          const resultBlocks = html.match(/<div class="result results_links[\s\S]*?<\/div>\s*<\/div>/g) || [];
+          const extracted: string[] = [];
+          for (const block of resultBlocks.slice(0, 8)) {
+            const titleMatch = block.match(/class="result__a"[^>]*>([\s\S]*?)<\/a>/);
+            const urlMatch = block.match(/href="([^"]*?)"/);
+            const title = titleMatch?.[1]?.replace(/<[^>]*>/g, "").trim() || "";
+            const url = urlMatch?.[1] || "";
+            if (title) extracted.push(`• ${title}${url ? `\n  🔗 ${url}` : ""}`);
+          }
+          return extracted.length > 0 ? `🔍 Results for "${args.query}":\n\n${extracted.join("\n\n")}` : "No results found.";
+        } catch {
+          return "Web search is temporarily unavailable. I'll try to answer from my knowledge instead.";
+        }
       }
     }
 

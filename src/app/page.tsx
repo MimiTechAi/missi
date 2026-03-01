@@ -218,7 +218,6 @@ export default function Home() {
     folderFiles: string[] | null;
   }>({ gmailToken: null, folderFiles: null });
   const [sttLang, setSttLang] = useState("en-US");
-  const [useAgentsAPI, setUseAgentsAPI] = useState(false); // Toggle v1 (manual tools) vs v2 (Mistral Agents)
   const [conversationId, setConversationId] = useState<string | null>(null);
   
   // Auto-detect browser language on mount
@@ -627,8 +626,7 @@ export default function Home() {
       
       // API call runs IN PARALLEL with filler audio
       const apiStart = Date.now();
-      const endpoint = useAgentsAPI ? "/api/chat-v2" : "/api/chat";
-        const res = await fetch(endpoint, {
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1542,16 +1540,7 @@ export default function Home() {
             <option key={v} value={v}>{l}</option>
           ))}
         </select>
-        <button onClick={() => setUseAgentsAPI(!useAgentsAPI)}
-          aria-label={useAgentsAPI ? "Switch to manual tools" : "Switch to Agents API"}
-          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors text-[9px] font-bold ${
-            useAgentsAPI
-              ? "bg-violet-50 text-violet-500 ring-1 ring-violet-200"
-              : "text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
-          }`} title={useAgentsAPI ? "v2: Mistral Agents API (web search, code, images built-in)" : "v1: 25 custom tools (DuckDuckGo, Yahoo, etc.)"}>
-          {useAgentsAPI ? "v2" : "v1"}
-        </button>
-        <button onClick={() => { setMessages([]); saveMessages([]); setConversationId(null); }}
+        <button onClick={() => { setMessages([]); saveMessages([]); }}
           aria-label="Clear conversation" className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors" title="Clear (⌘K)">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
         </button>
@@ -1565,7 +1554,7 @@ export default function Home() {
           <div className="flex items-center gap-2.5">
             <span className="text-[13px] font-semibold text-zinc-800">MISSI</span>
             <span className="text-[11px] text-zinc-400 font-medium">
-              {useAgentsAPI ? "🧠 Agents API · Web Search · Code Interpreter · Image Generation" : "4 Mistral Models · Voxtral STT · ElevenLabs TTS · 25 Tools"}
+              "4 Mistral Models · Voxtral STT · ElevenLabs TTS · 25 Tools"
             </span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -1608,9 +1597,7 @@ export default function Home() {
             <div className="scale-110 sm:scale-100 transition-transform"><VoiceOrb state={voiceState} audioLevel={audioLevel} size={100} onClick={handleOrbClick} /></div>
             <h2 className="mt-5 sm:mt-6 text-[20px] sm:text-[22px] font-semibold text-zinc-800 tracking-tight">What can I help with?</h2>
             <p className="mt-1.5 text-[13px] text-zinc-400">
-              {useAgentsAPI
-                ? "Powered by Mistral Agents API — Native Web Search, Code Interpreter & Image Generation"
-                : "Voice-first AI operating system powered by Mistral"}
+              "Voice-first AI operating system powered by Mistral"
             </p>
             <p className="mt-0.5 text-[11px] text-zinc-300">25 Tools · 4 Models · Voxtral · ElevenLabs · Vision · 10 Languages</p>
 
@@ -1659,13 +1646,7 @@ export default function Home() {
             {/* Capabilities strip */}
             {voiceState === "idle" && (
               <div className="mt-7 flex flex-wrap justify-center gap-x-4 gap-y-1 max-w-lg">
-                {(useAgentsAPI ? [
-                  { icon: "🔍", label: "Web Search" },
-                  { icon: "💻", label: "Code Interpreter" },
-                  { icon: "🎨", label: "Image Generation" },
-                  { icon: "📄", label: "Citations" },
-                  { icon: "💬", label: "Persistent Memory" },
-                ] : [
+                {[
                   { icon: "🔍", label: "Search" },
                   { icon: "🌤️", label: "Weather" },
                   { icon: "💻", label: "Code" },
@@ -1673,7 +1654,7 @@ export default function Home() {
                   { icon: "📝", label: "Reports" },
                   { icon: "👁️", label: "Vision" },
                   { icon: "🌐", label: "Translate" },
-                ]).map((cap) => (
+                ].map((cap) => (
                   <span key={cap.label} className="text-[11px] text-zinc-400 flex items-center gap-1">
                     <span className="text-[12px]">{cap.icon}</span>{cap.label}
                   </span>
