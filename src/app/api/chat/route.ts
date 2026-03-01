@@ -1048,37 +1048,6 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
       }
     }
 
-    case "get_calendar": {
-      if (!process.env.COMPOSIO_API_KEY) return "Calendar not configured.";
-      try {
-        const now = new Date();
-        const endDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": process.env.COMPOSIO_API_KEY || "" },
-          body: JSON.stringify({ tool_name: "GOOGLECALENDAR_LIST_EVENTS", user_id: "missi_demo_user",
-            input: {
-              time_min: now.toISOString(),
-              time_max: endDate.toISOString(),
-              max_results: 10,
-            },
-          }),
-        });
-        const data = await res.json();
-        if (data?.data) {
-          const events = Array.isArray(data.data) ? data.data : [];
-          if (!events.length) return "📅 No upcoming events found in the next 7 days.";
-          return events.map((e: Record<string, string>) => {
-            const start = e.start ? new Date(e.start).toLocaleString("de-DE") : "";
-            return `📅 **${e.summary || e.title || "Untitled"}**\n   🕐 ${start}${e.location ? `\n   📍 ${e.location}` : ""}`;
-          }).join("\n\n");
-        }
-        return "📅 No events found. Connect Google Calendar via the sidebar 📅 icon first.";
-      } catch {
-        return "Calendar lookup failed. Click 📅 in the sidebar to connect.";
-      }
-    }
-
     default:
       return `Unknown tool: ${name}`;
   }
@@ -1188,7 +1157,19 @@ async function executePermissionTool(name: string, args: Record<string, string>,
     }
 
     case "search_files": {
-      if (!process.env.COMPOSIO_API_KEY) return "File search requires Composio. Set COMPOSIO_API_KEY.";
+      // Priority 1: Use local file index from frontend (user granted folder access)
+      const fileIndex = context.fileIndex as string;
+      if (fileIndex) {
+        const files = fileIndex.split("\n").filter(Boolean);
+        const query = (args.query || "").toLowerCase();
+        const matches = files.filter(f => f.toLowerCase().includes(query));
+        if (matches.length > 0) {
+          return `📂 Found ${matches.length} matching file(s):\n\n${matches.slice(0, 15).map(f => `🗂️ ${f}`).join("\n")}${matches.length > 15 ? `\n\n... and ${matches.length - 15} more` : ""}`;
+        }
+        return `No local files matching "${args.query}" in the connected folder (${files.length} files indexed).`;
+      }
+      // Priority 2: Composio Google Drive
+      if (!process.env.COMPOSIO_API_KEY) return "No folder connected. Click the 📁 icon in the sidebar to grant folder access.";
       try {
         const res = await fetch("https://backend.composio.dev/api/v3/tools/execute/direct", {
           method: "POST",
@@ -1462,13 +1443,9 @@ export async function POST(req: NextRequest) {
                     fullContent += chunk;
                     controller.enqueue(sseEvent("content_delta", chunk));
                     // Adaptive streaming pace — fast start, smooth middle, speed up for long responses
-                    const tokenCount = fullContent.length;
-                    const baseDelay = tokenCount < 50 ? 10 : tokenCount < 200 ? 20 : tokenCount < 500 ? 16 : 12;
-                    const jitter = Math.random() * 6 - 3;
-                    // Pause at punctuation for natural reading rhythm
                     const lastChar = chunk[chunk.length - 1];
-                    const punctPause = lastChar === '.' || lastChar === '!' || lastChar === '?' ? 40 : lastChar === ',' || lastChar === ':' ? 20 : 0;
-                    await new Promise(r => setTimeout(r, Math.max(6, baseDelay + jitter + punctPause)));
+                    const punctPause = lastChar === '.' || lastChar === '!' || lastChar === '?' ? 15 : lastChar === ',' || lastChar === ':' ? 8 : 0;
+                    if (punctPause > 0) await new Promise(r => setTimeout(r, punctPause));
                   }
                 }
                 return fullContent;
@@ -1595,16 +1572,16 @@ export async function POST(req: NextRequest) {
                 if (!isSpace && i < words.length - 1) {
                   const word = words[i];
                   const isHeader = word.startsWith('#');
-                  const jitter = Math.random() * 8 - 4; // ±4ms natural variation
+                  const jitter = Math.random() * 4 - 2; // ±2ms natural variation
                   const delay = isHeader
-                    ? 120  // Pause before headers — visual grouping
+                    ? 60   // Brief pause before headers
                     : word.endsWith('.') || word.endsWith('!') || word.endsWith('?') || word.endsWith(':')
-                    ? 75   // Sentence boundaries
+                    ? 35   // Sentence boundaries — natural breath
                     : word.endsWith(',') || word.endsWith(';')
-                    ? 45   // Comma pause
+                    ? 20   // Comma pause
                     : word.endsWith('\n')
-                    ? 55   // Line break pause
-                    : 22;  // Normal word pace — fast but readable
+                    ? 25   // Line break
+                    : 10;  // Fast word pace — ~100 wps, smooth and snappy
                   await new Promise(r => setTimeout(r, Math.max(10, delay + jitter)));
                 }
               }
