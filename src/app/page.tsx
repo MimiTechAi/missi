@@ -264,8 +264,14 @@ export default function Home() {
   // Typing animation for latest assistant message (orb view)
   const typedContent = useTypingEffect(latestContent, 12, latestContent.length > 0);
 
-  // Load messages on mount
-  useEffect(() => { setMessages(loadMessages()); }, []);
+  // Load messages on mount + register service worker
+  useEffect(() => {
+    setMessages(loadMessages());
+    // PWA service worker
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, []);
   useEffect(() => { if (messages.length > 0) saveMessages(messages); }, [messages]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, latestContent]);
 
@@ -1471,7 +1477,7 @@ export default function Home() {
   return (
     <ErrorBoundary>
     <div
-      className="h-screen bg-white text-zinc-900 flex overflow-hidden"
+      className="h-[100dvh] bg-white text-zinc-900 flex overflow-hidden"
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleImageUpload(f); }}
@@ -1543,9 +1549,6 @@ export default function Home() {
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* ── TOP BAR ── */}
-        <div className="flex-shrink-0 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-center py-1.5 px-4 text-[12px] font-medium tracking-wide animate-fade-in">
-          👋 Grüße an Michael! Dieser Banner wurde gerade LIVE von Vex eingefügt — {new Date().toLocaleTimeString("de-DE", {hour:"2-digit", minute:"2-digit"})} Uhr · Kein Mensch hat das getippt 🤖
-        </div>
         <header className="flex-shrink-0 h-11 border-b border-zinc-100 flex items-center justify-between px-5">
           <div className="flex items-center gap-2.5">
             <span className="text-[13px] font-semibold text-zinc-800">MISSI</span>
@@ -1588,8 +1591,8 @@ export default function Home() {
         {messages.length === 0 && !isLoading ? (
           /* IDLE: Hero centered (like ChatGPT) */
           <div className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
-            <VoiceOrb state={voiceState} audioLevel={audioLevel} size={100} onClick={handleOrbClick} />
-            <h2 className="mt-6 text-[22px] font-semibold text-zinc-800 tracking-tight">What can I help with?</h2>
+            <div className="scale-110 sm:scale-100 transition-transform"><VoiceOrb state={voiceState} audioLevel={audioLevel} size={100} onClick={handleOrbClick} /></div>
+            <h2 className="mt-5 sm:mt-6 text-[20px] sm:text-[22px] font-semibold text-zinc-800 tracking-tight">What can I help with?</h2>
             <p className="mt-1.5 text-[13px] text-zinc-400">Voice-first AI operating system powered by Mistral</p>
             <p className="mt-0.5 text-[11px] text-zinc-300">25 Tools · 4 Models · Voxtral · ElevenLabs · Vision · 10 Languages</p>
 
@@ -1667,7 +1670,7 @@ export default function Home() {
                   {/* USER MESSAGE */}
                   {msg.role === "user" && (
                     <div className="flex justify-end mb-5">
-                      <div className="max-w-[75%] bg-zinc-100 rounded-2xl rounded-tr-sm px-4 py-3">
+                      <div className="max-w-[85%] sm:max-w-[75%] bg-zinc-100 rounded-2xl rounded-tr-sm px-3.5 sm:px-4 py-2.5 sm:py-3">
                         {msg.fromVoice && (
                           <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 mb-1">
                             <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/></svg>
@@ -1735,7 +1738,7 @@ export default function Home() {
                           <div className="mt-3 space-y-1.5">
                             {msg.toolCalls.map((t, j) => (
                               <details key={j} className="group border border-zinc-200 rounded-xl overflow-hidden bg-zinc-50/50">
-                                <summary className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-zinc-50 transition-colors list-none">
+                                <summary className="flex items-center justify-between px-2.5 sm:px-3 py-2 cursor-pointer hover:bg-zinc-50 transition-colors list-none">
                                   <div className="flex items-center gap-2">
                                     <span className="text-emerald-500 text-[13px]">✓</span>
                                     <span className="text-[13px] font-medium text-zinc-700">{toolIcons[t.tool]} {t.tool}</span>
@@ -1927,7 +1930,7 @@ export default function Home() {
         )}
 
         {/* ── BOTTOM INPUT ── */}
-        <div className="flex-shrink-0 border-t border-zinc-100 bg-white px-3 sm:px-5 py-3">
+        <div className="flex-shrink-0 border-t border-zinc-100 bg-white px-3 sm:px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div className="max-w-[720px] mx-auto px-1 sm:px-0">
             {/* Voice transcript */}
             {voiceState === "listening" && input && (
@@ -1940,7 +1943,7 @@ export default function Home() {
             <div className="flex items-end gap-2.5 bg-zinc-50 border border-zinc-200 rounded-2xl px-4 py-2.5 focus-within:border-orange-300 focus-within:shadow-[0_0_0_3px_rgba(251,146,60,0.08)] transition-all duration-200">
               {/* Image upload */}
               <button onClick={() => fileInputRef.current?.click()}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-all flex-shrink-0" title="Upload image (Pixtral)">
+                className="w-9 h-9 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-all flex-shrink-0 touch-manipulation" title="Upload image (Pixtral)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
               </button>
               <input type="file" ref={fileInputRef} accept="image/*" className="hidden"
@@ -1953,17 +1956,17 @@ export default function Home() {
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
                 placeholder="Ask MISSI anything… or press Space to talk"
                 rows={1}
-                className="flex-1 bg-transparent text-[14px] text-zinc-800 placeholder:text-zinc-400 outline-none resize-none leading-relaxed min-h-[24px] max-h-[200px] overflow-y-auto py-0.5"
+                className="flex-1 bg-transparent text-[16px] sm:text-[14px] text-zinc-800 placeholder:text-zinc-400 outline-none resize-none leading-relaxed min-h-[24px] max-h-[200px] overflow-y-auto py-0.5"
               />
 
               {/* Voice mini orb */}
-              <div className="flex-shrink-0 cursor-pointer" onClick={handleOrbClick} title="Voice (Space)">
+              <div className="flex-shrink-0 cursor-pointer touch-manipulation" onClick={handleOrbClick} title="Voice (Space)">
                 <VoiceOrb state={voiceState} audioLevel={audioLevel} size={30} />
               </div>
 
               {/* Send button */}
               <button onClick={() => sendMessage(input)} disabled={isLoading || !input.trim()}
-                className="w-8 h-8 rounded-lg flex items-center justify-center bg-zinc-900 disabled:bg-zinc-200 disabled:text-zinc-400 text-white hover:bg-zinc-800 active:scale-95 transition-all duration-150 flex-shrink-0 disabled:cursor-not-allowed">
+                className="w-9 h-9 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center bg-zinc-900 disabled:bg-zinc-200 disabled:text-zinc-400 text-white hover:bg-zinc-800 active:scale-95 transition-all duration-150 flex-shrink-0 disabled:cursor-not-allowed">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
               </button>
             </div>

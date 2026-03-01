@@ -129,3 +129,70 @@ body {
   background: rgba(251, 146, 60, 0.2);
   color: inherit;
 }
+
+/* ── Mobile Optimizations ── */
+
+/* Prevent text selection on interactive elements */
+button, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* Smooth momentum scrolling on iOS */
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Safe area support for notch devices */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Prevent iOS zoom on input focus (already handled by 16px font) */
+@media (max-width: 639px) {
+  /* Tighter spacing on mobile */
+  .prose {
+    font-size: 14px;
+    line-height: 1.7;
+  }
+  
+  .prose pre {
+    font-size: 12px;
+    border-radius: 12px;
+  }
+  
+  .prose h1, .prose h2, .prose h3 {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* PWA standalone mode adjustments */
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Touch-friendly animations */
+@media (hover: none) {
+  /* Disable hover effects on touch devices */
+  .group:hover .group-hover\:opacity-100 {
+    opacity: 1;
+  }
+  
+  /* Always show action buttons on mobile */
+  .opacity-0.group-hover\:opacity-100 {
+    opacity: 0.7;
+  }
+}
+
+/* Landscape mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+  .h-\[100dvh\] {
+    height: 100vh;
+  }
+}
