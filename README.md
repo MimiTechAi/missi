@@ -1,186 +1,197 @@
-# 🤖 MISSI — Voice AI Operating System
+# 🤖 MISSI — Mistral Intelligent Super System Interface
 
-> **Mistral Intelligent System for Seamless Interaction** — A voice-first AI agent powered by Mistral AI's full model ecosystem with 25 autonomous tools.
+> **A voice-first AI operating system** powered by 6 specialized Mistral models, 28 autonomous tools, and 10,000+ integrations — built for the **Mistral AI Worldwide Hackathon 2026**.
 
-Built for the **Mistral AI Worldwide Hackathon 2026** by **MiMi Tech AI**.
+🌐 **[Live Demo](https://jarvis-eta-smoky.vercel.app)** · 🎬 **[Demo Video](#)** · 🏢 **[MiMi Tech AI](https://mimitechai.com)**
 
-## 🎬 Demo
+---
 
-[Live Demo](https://jarvis-eta-smoky.vercel.app) · [Video Demo](#)
+## What is MISSI?
 
-## 💡 What is MISSI?
+MISSI is a **voice-first AI operating system** that understands you in 10 languages, intelligently routes every query to the optimal Mistral model, executes multi-step workflows autonomously, and responds with natural human-like speech.
 
-MISSI is not another chatbot. It's a **voice-first AI operating system** that intelligently routes your requests across 4 specialized Mistral models, executes multi-step autonomous workflows with 25 tools, and responds with natural human-like voice — streaming speech sentence-by-sentence as it thinks.
+**Speak → MISSI routes to the best model → Executes tools autonomously → Speaks back naturally.**
 
-**Speak → MISSI plans → Executes tools autonomously → Speaks back in real-time.**
+### Why MISSI Stands Out
 
-### Key Differentiators
-- 🧠 **4-Model Intelligent Routing** — Automatically selects the best Mistral model per query
-- 🎙️ **Voxtral-Native STT** — Mistral's own speech-to-text, not browser APIs
-- 🗣️ **Streaming TTS** — Speaks sentences AS they're generated (no waiting)
-- 🛑 **Voice Barge-In** — Interrupt MISSI mid-sentence by speaking (GPT-4o style)
-- 👁️ **Pixtral Vision** — Drag & drop images for instant analysis
-- 📄 **Artifact Canvas** — Claude-style document panel with download
-- 🔗 **Perplexity-Style Sources** — Inline source cards with favicons
-- 🌍 **10 Languages** — DE, EN, FR, ES, IT, PT, JA, KO, ZH, RU
-- 💬 **"Hey Missi" Wake Word** — Hands-free activation
+| Feature | MISSI | Typical Chatbots |
+|---------|-------|-----------------|
+| **Model Selection** | 6 specialized Mistral models, auto-routed per query | Single model |
+| **Voice** | Voxtral STT + ElevenLabs TTS, continuous conversation | Text only or basic TTS |
+| **Tools** | 28 built-in + 10,000+ via Composio | Limited or none |
+| **Languages** | 10 languages, auto-detected from browser | English only |
+| **Integrations** | Gmail, Calendar, GitHub, Slack, Notion, Drive | None or manual |
+| **Documents** | Professional HTML reports with charts & tables | Plain text |
 
-## 🧠 Intelligent Multi-Model Routing
+---
 
-MISSI automatically selects the best Mistral model for each query:
+## 🧠 6-Model Intelligent Routing
 
-| Query Type | Model | Why |
-|-----------|-------|-----|
-| Quick questions | `mistral-small-latest` ⚡ | Speed-optimized |
-| Deep analysis, research | `mistral-large-latest` 🧠 | Best reasoning |
-| Code generation | `codestral-latest` 💻 | Code specialist |
-| Image analysis | `pixtral-large-latest` 👁️ | Vision model |
+MISSI analyzes every message and selects the optimal Mistral model in real-time:
 
-This isn't hardcoded — MISSI analyzes each message and makes real-time routing decisions.
+| Query Type | Model | Trigger Examples |
+|-----------|-------|-----------------|
+| General intelligence | `mistral-large-latest` 🧠 | Research, analysis, questions |
+| Fast responses | `mistral-small-latest` ⚡ | Greetings, simple queries |
+| Deep reasoning | `magistral-medium-latest` 🧮 | Math, logic, proofs, comparisons |
+| Creative writing | `mistral-medium-latest` 🎨 | Stories, poems, creative content |
+| Code generation | `codestral-latest` 💻 | Programming, debugging, scripts |
+| Image analysis | `pixtral-large-latest` 👁️ | Photo analysis, OCR, diagrams |
 
-## 🛠️ 25 Agent Tools
+Additional models used internally:
+- **`voxtral-small-latest`** — Speech-to-text (Mistral-native STT)
+- **`mistral-ocr-latest`** — Document OCR and analysis
+
+---
+
+## 🛠️ 28 Agent Tools
 
 ### Core Intelligence
 | Tool | Description |
 |------|-------------|
-| 🔍 `web_search` | Real-time internet search (8 results with URLs) |
-| 📄 `read_webpage` | Extract content from any URL |
-| 📖 `wikipedia` | Wikipedia knowledge in any language |
-| 📰 `news_headlines` | Latest news by topic/country |
-| 🌤️ `get_weather` | Weather + 3-day forecast for any city |
-| 🕐 `get_time` | Current time in any timezone |
-| 📍 `get_location` | User's GPS location |
+| `web_search` | Real-time web search via Brave API |
+| `read_webpage` | Extract content from any URL |
+| `wikipedia` | Wikipedia knowledge in any language |
+| `news_headlines` | Latest news via Google News RSS |
+| `get_weather` | Weather + 3-day forecast (Open-Meteo) |
+| `get_time` | Current time in any timezone |
+| `get_location` | Browser geolocation |
 
 ### Finance & Data
 | Tool | Description |
 |------|-------------|
-| 📈 `get_stock_price` | Real-time stock prices (Yahoo Finance) |
-| 🪙 `get_crypto_price` | Live crypto prices (CoinGecko) |
-| 🔢 `calculate` | Mathematical computations |
-| 📊 `analyze_data` | Statistical analysis & pattern finding |
-| 🔄 `unit_convert` | Temperature, length, weight, volume, speed, data |
+| `get_stock_price` | Real-time stock prices (Yahoo Finance) |
+| `get_crypto_price` | Live crypto prices (CoinGecko) |
+| `calculate` | Mathematical computations |
+| `analyze_data` | Statistical analysis & pattern finding |
+| `unit_convert` | Temperature, length, weight, volume, speed, data |
+| `generate_chart` | Bar, line, pie, area charts (SVG) |
 
-### Creation & Code
+### Creation & Documents
 | Tool | Description |
 |------|-------------|
-| 💻 `run_code` | Execute JavaScript code |
-| ⌨️ `generate_code` | Production code via Codestral |
-| 📝 `create_document` | Generate downloadable reports & documents |
-| 🌐 `translate` | Multi-language translation |
-| 📋 `summarize_text` | Summarize long content |
-| 📖 `define_word` | Dictionary definitions, synonyms, examples |
-| 💡 `random_fact` | Interesting facts & trivia |
+| `run_code` | Execute JavaScript in sandbox |
+| `generate_code` | Production code via Codestral |
+| `create_document` | Professional HTML reports with tables & metrics |
+| `analyze_document` | OCR via `mistral-ocr-latest` |
+| `translate` | Multi-language translation |
+| `summarize_text` | Intelligent text summarization |
+| `define_word` | Dictionary with synonyms & examples |
+| `random_fact` | Curated facts & trivia |
 
-### Integrations (Permission-Gated)
+### Integrations (Composio — Permission-Gated)
 | Tool | Description |
 |------|-------------|
-| 📧 `search_gmail` / `read_gmail` | Gmail inbox search & reading |
-| 📂 `search_files` | Local file search (File System Access API) |
-| 📅 `get_calendar` | Google Calendar events |
-| ⏰ `set_reminder` | Browser notification reminders |
-| 🎭 `change_voice` | Switch between 6 ElevenLabs voices |
+| `search_gmail` / `read_gmail` | Gmail inbox search & reading |
+| `get_calendar` | Google Calendar events |
+| `get_github` | GitHub repos, issues, create issues |
+| `search_files` | Google Drive file search |
+| `set_reminder` | Browser notification reminders |
+| `change_voice` | Switch between 6 ElevenLabs voices |
 
-## 🔄 Autonomous Multi-Step Planning
+---
 
-For complex requests, MISSI decomposes tasks into steps and executes them autonomously:
+## 🎙️ Voice System
 
-```
-User: "Research quantum computing breakthroughs and create a summary report"
+MISSI's voice pipeline is designed for natural, continuous conversation:
 
-MISSI Plan:
-  1. ✓ Search for latest quantum computing news
-  2. ✓ Read top 3 articles  
-  3. ✓ Analyze and compare findings
-  4. ✓ Create structured report document
-  5. ✓ Summarize key insights verbally
-```
+1. **Voxtral STT** — Mistral-native speech-to-text (not browser APIs)
+2. **Intelligent Processing** — Auto-routes to optimal model
+3. **ElevenLabs TTS** — Full response spoken as continuous natural speech
+4. **Auto-Relisten** — Immediately listens for your next input
 
-Up to 8 rounds of autonomous tool execution for complex workflows.
-
-## 🎙️ Voice Interaction
-
-- **Voxtral STT** — Mistral-native speech-to-text (not browser SpeechRecognition)
-- **ElevenLabs TTS** — Natural, human-like voice with 6 switchable voices
-- **Streaming TTS** — Speaks sentences as they arrive (no waiting for full response)
-- **Voice Barge-In** — Interrupt MISSI by speaking (mic monitors during playback)
-- **"Hey Missi" Wake Word** — Hands-free activation
-- **Continuous Conversation** — Back-and-forth without clicking
-- **Filler Audio** — Speaks "Let me check..." while thinking (like a human)
-- **Audio-reactive VoiceOrb** — Canvas visualization responds to voice in real-time
+### Voice Features
+- **Continuous Conversation** — Speak naturally back-and-forth
 - **10 Languages** — Auto-detected from browser, switchable in UI
+- **6 Switchable Voices** — Sarah, Aria, Rachel, Eric, Roger, Charlie
+- **VoiceOrb Visualization** — Animated state indicator (idle → listening → thinking → speaking)
+- **Keyboard Shortcuts** — Space (voice), Escape (stop), ⌘K (clear)
 
-## 👁️ Vision (Pixtral)
+---
 
-Drag & drop or upload any image — MISSI uses Pixtral Large for detailed analysis:
-- Photo analysis & description
-- Text extraction from screenshots
-- Diagram interpretation
-- Object & scene recognition
+## 📄 Canvas Panel
 
-## 🎨 UI/UX Design
+MISSI generates professional documents rendered in a side panel:
 
-- **ChatGPT-style layout** — Clean, no-bubble assistant messages with avatars
-- **Perplexity-style sources** — Inline source cards with favicons and domains
-- **Claude-style Artifact Canvas** — Side panel for documents with copy & download
-- **Live Tool Cards** — Streaming tool execution progress with status indicators
-- **Live Browsing Panel** — Shows which pages MISSI is reading in real-time
-- **Follow-up Suggestions** — 3 contextual follow-up buttons after each response
-- **Animated VoiceOrb** — State-aware (idle/listening/thinking/speaking) with particles
-- **Keyboard Shortcuts** — Space (voice), Escape (stop), Cmd+K (focus input)
+- **HTML Documents** — Styled reports with tables, metrics, charts
+- **Traffic Light Controls** — Close (🔴), minimize (🟡), fullscreen (🟢)
+- **Download** — HTML or Markdown format
+- **Print-Ready** — Optimized CSS for printing
 
-## 🔌 External Integrations (Composio)
+Documents include CSS components: stat cards, info cards, comparison grids, progress bars, timelines, and data tables.
 
-MISSI connects to **10,000+ external tools** via [Composio](https://composio.dev):
+---
 
-| Integration | Features |
-|---|---|
-| 📧 **Gmail** | Search, read, send emails |
-| 📅 **Google Calendar** | View, create, manage events |
-| 🐙 **GitHub** | Issues, PRs, repos |
-| 💬 **Slack** | Messages, channels |
-| 📝 **Notion** | Pages, databases |
-| 📁 **Google Drive** | Files, sharing |
-| 🎵 **Spotify** | Playlists, playback |
-| And **10,000+ more** | via Composio's managed OAuth |
+## 🔌 10,000+ Integrations (Composio)
 
-One-click connection — Composio handles all OAuth flows, token refresh, and credential management.
+One-click OAuth connection via [Composio](https://composio.dev):
+
+| Integration | Status | Features |
+|---|---|---|
+| 📧 **Gmail** | ✅ Connected | Search, read, send emails |
+| 📅 **Google Calendar** | ✅ Connected | View, create, manage events |
+| 🐙 **GitHub** | ✅ Connected | Repos, issues, create issues |
+| 💬 **Slack** | Available | Messages, channels |
+| 📝 **Notion** | Available | Pages, databases |
+| 📁 **Google Drive** | Available | Files, sharing |
+| ➕ **10,000+ more** | Via Composio | Managed OAuth & token refresh |
+
+---
+
+## 🌍 Internationalization
+
+MISSI auto-detects the browser language and switches the entire UI:
+
+- **10 Languages:** 🇩🇪 DE · 🇺🇸 EN · 🇫🇷 FR · 🇪🇸 ES · 🇮🇹 IT · 🇵🇹 PT · 🇯🇵 JA · 🇰🇷 KO · 🇨🇳 ZH · 🇷🇺 RU
+- Welcome screen, badges, placeholders, footer — all localized
+- AI responses match the selected language
+- TTS automatically selects the optimal voice model per language
+
+---
 
 ## 🏗️ Architecture
 
 ```
-┌────────────────────────────────────────────────┐
-│           MISSI Frontend (Next.js 16)          │
-│   VoiceOrb ← Web Audio API ← ElevenLabs       │
-│   Voxtral STT → Chat → Vision → Downloads     │
-└────────────────────┬───────────────────────────┘
-                     │ SSE Streaming
-┌────────────────────▼───────────────────────────┐
-│         Intelligent Model Router                │
-│   Query Analysis → Model Selection              │
-│   ⚡ small │ 🧠 large │ 💻 codestral │ 👁️ pixtral │
-└────────────────────┬───────────────────────────┘
-                     │
-┌────────────────────▼───────────────────────────┐
-│       Autonomous Planning Engine                │
-│   Task Decomposition → Parallel Execution       │
-│   Up to 8 rounds × 25 tools                    │
-└────────────────────┬───────────────────────────┘
-                     │
-┌────────────────────▼───────────────────────────┐
-│         25 Agent Tools (Parallel Execution)     │
-│   Search │ Weather │ Code │ Finance │ Docs │...│
-└────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│            MISSI Frontend (Next.js 16)          │
+│  VoiceOrb ← Web Audio API ← ElevenLabs TTS     │
+│  Voxtral STT → Chat → Vision → Canvas Panel    │
+└──────────────────────┬──────────────────────────┘
+                       │ SSE Streaming
+┌──────────────────────▼──────────────────────────┐
+│          Intelligent Model Router                │
+│    Query Analysis → Optimal Model Selection      │
+│  ⚡small 🧠large 💻codestral 👁️pixtral 🧮magistral 🎨medium │
+└──────────────────────┬──────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────┐
+│        Autonomous Planning Engine                │
+│    Task Decomposition → Multi-Step Execution     │
+│    Up to 8 rounds × 28 tools                    │
+└──────────────────────┬──────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────┐
+│     28 Built-in Tools + 10,000+ via Composio    │
+│  Search│Weather│Code│Finance│Docs│Gmail│GitHub│… │
+└─────────────────────────────────────────────────┘
 ```
+
+---
 
 ## 🚀 Tech Stack
 
-- **Frontend:** Next.js 16, React 19, TypeScript, Tailwind CSS 4
-- **AI Models:** Mistral AI SDK (4 models with intelligent routing)
-- **Voice In:** Voxtral Mini (Mistral-native STT)
-- **Voice Out:** ElevenLabs (Flash v2.5 + Multilingual v2)
-- **Audio:** Web Audio API for real-time visualization & barge-in detection
-- **Deploy:** Vercel (Edge-optimized)
-- **Dev:** Built with Mistral Vibe CLI
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | Next.js 16.1.6, React 19, TypeScript, Tailwind CSS 4 |
+| **AI Models** | Mistral AI SDK 1.14.1 (6 models + intelligent routing) |
+| **Speech-to-Text** | Voxtral Small (Mistral-native) |
+| **Text-to-Speech** | ElevenLabs (Turbo v2.5 + Multilingual v2) |
+| **Integrations** | Composio V3 Tool Router Session API |
+| **Charts** | Custom SVG generation engine |
+| **Markdown** | react-markdown + remark-gfm |
+| **Deployment** | Vercel |
+
+---
 
 ## 🏃 Quick Start
 
@@ -189,34 +200,40 @@ git clone https://github.com/MimiTechAi/missi.git
 cd missi
 npm install
 
-# Add your API keys
+# Configure environment
 cp .env.example .env.local
-# Edit .env.local with your keys
+# Add your API keys (see below)
 
 npm run dev
 # Open http://localhost:3000
 ```
 
-## 📦 Environment Variables
+### Environment Variables
 
-```
+```env
 MISTRAL_API_KEY=your_mistral_api_key
 ELEVENLABS_API_KEY=your_elevenlabs_api_key
+COMPOSIO_API_KEY=your_composio_api_key    # Optional: for Gmail, Calendar, GitHub
 ```
 
-## 🏆 Hackathon Prizes Targeted
+---
 
-- **Global Winner** — Full Mistral ecosystem (4 models + 25 tools + autonomous planning)
-- **Best Voice Use Case (ElevenLabs)** — Streaming TTS + Barge-In + 6 voices + 10 languages
-- **Best Use of Agent Skills** — 25 tools with autonomous multi-step planning
-- **Best Vibe Usage** — Project developed with Mistral Vibe CLI
+## 🏆 Hackathon Categories
+
+- **🌍 Global Winner** — Full Mistral ecosystem: 6 models + 28 tools + autonomous planning
+- **🎙️ Best Voice Use Case (ElevenLabs)** — Continuous voice conversation in 10 languages
+- **🤖 Best Use of Agent Skills** — 28 tools with multi-step autonomous execution
+- **🔗 Best Integration (Composio)** — Gmail, Calendar, GitHub + 10,000+ tools
+
+---
 
 ## 👥 Team
 
 **MiMi Tech AI** — Michael Bemler & Michael Soppa
 
-- 🌐 [mimitechai.com](https://mimitechai.com)
-- 🐙 [github.com/MimiTechAi](https://github.com/MimiTechAi)
+🌐 [mimitechai.com](https://mimitechai.com) · 🐙 [github.com/MimiTechAi](https://github.com/MimiTechAi)
+
+---
 
 ## 📄 License
 
@@ -224,4 +241,4 @@ MIT
 
 ---
 
-*Built with ❤️ at the Mistral AI Worldwide Hackathon 2026*
+*Built with ❤️ for the Mistral AI Worldwide Hackathon 2026*
