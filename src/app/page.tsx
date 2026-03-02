@@ -1940,10 +1940,10 @@ export default function Home() {
               </div>
             </div>
             <h2 className="mt-6 text-[24px] sm:text-[28px] font-bold text-zinc-900 tracking-[-0.5px] text-center leading-tight">
-              What can I help with?
+              {({de:"Wie kann ich dir helfen?",fr:"Comment puis-je vous aider?",es:"¿Cómo puedo ayudarte?",it:"Come posso aiutarti?",pt:"Como posso ajudar?",ja:"何をお手伝いしましょうか？",ko:"무엇을 도와드릴까요?",zh:"我能帮你什么？",en:"What can I help with?"})[sttLang.split("-")[0]] || "What can I help with?"}
             </h2>
             <p className="mt-2 text-[13px] text-zinc-400 text-center max-w-xs">
-              Voice-first AI — speak naturally, type, or drop an image
+              {({de:"Voice-First KI — sprich natürlich, tippe, oder zieh ein Bild rein",fr:"IA vocale — parlez naturellement, tapez ou déposez une image",es:"IA de voz — habla naturalmente, escribe o arrastra una imagen",en:"Voice-first AI — speak naturally, type, or drop an image"})[sttLang.split("-")[0]] || "Voice-first AI — speak naturally, type, or drop an image"}
             </p>
             <p className="mt-1 text-[11px] text-zinc-300 text-center">
               <kbd className="px-1.5 py-0.5 bg-zinc-100 rounded text-[10px] border border-zinc-200">Space</kbd> voice · <kbd className="px-1.5 py-0.5 bg-zinc-100 rounded text-[10px] border border-zinc-200">Esc</kbd> stop · <kbd className="px-1.5 py-0.5 bg-zinc-100 rounded text-[10px] border border-zinc-200">⌘K</kbd> clear
@@ -2004,16 +2004,27 @@ export default function Home() {
             {voiceState === "idle" && (
               <div className="mt-7 flex flex-wrap justify-center gap-x-4 gap-y-1 max-w-lg">
                 {[
-                  { icon: "🔍", label: "Search" },
-                  { icon: "📧", label: "Gmail" },
-                  { icon: "📅", label: "Calendar" },
-                  { icon: "💻", label: "Code" },
-                  { icon: "📊", label: "Charts" },
-                  { icon: "📈", label: "Finance" },
-                  { icon: "👁️", label: "Vision" },
-                  { icon: "🎨", label: "Images" },
-                  { icon: "📄", label: "OCR" },
-                  { icon: "🌐", label: "10K+ Tools" },
+                  ...(() => {
+                    const l = sttLang.split("-")[0];
+                    const labels: Record<string, Record<string, string>> = {
+                      de: {Search:"Suche",Gmail:"E-Mail",Calendar:"Kalender",Code:"Code",Charts:"Diagramme",Finance:"Finanzen",Vision:"Vision",Images:"Bilder",OCR:"OCR",Tools:"10K+ Tools"},
+                      fr: {Search:"Recherche",Gmail:"E-mail",Calendar:"Calendrier",Code:"Code",Charts:"Graphiques",Finance:"Finance",Vision:"Vision",Images:"Images",OCR:"OCR",Tools:"10K+ Outils"},
+                      es: {Search:"Búsqueda",Gmail:"Correo",Calendar:"Calendario",Code:"Código",Charts:"Gráficos",Finance:"Finanzas",Vision:"Visión",Images:"Imágenes",OCR:"OCR",Tools:"10K+ Herramientas"},
+                    };
+                    const t = labels[l] || {};
+                    return [
+                      { icon: "🔍", label: t.Search || "Search" },
+                      { icon: "📧", label: t.Gmail || "Gmail" },
+                      { icon: "📅", label: t.Calendar || "Calendar" },
+                      { icon: "💻", label: t.Code || "Code" },
+                      { icon: "📊", label: t.Charts || "Charts" },
+                      { icon: "📈", label: t.Finance || "Finance" },
+                      { icon: "👁️", label: t.Vision || "Vision" },
+                      { icon: "🎨", label: t.Images || "Images" },
+                      { icon: "📄", label: t.OCR || "OCR" },
+                      { icon: "🌐", label: t.Tools || "10K+ Tools" },
+                    ];
+                  })(),
                 ].map((cap) => (
                   <span key={cap.label} className="inline-flex items-center gap-1 text-[11px] text-zinc-400/70 bg-white/50 border border-zinc-200/30 rounded-full px-2.5 py-0.5 backdrop-blur-sm">
                     <span className="text-[11px]">{cap.icon}</span>{cap.label}
@@ -2536,9 +2547,14 @@ export default function Home() {
                   const lang = sttLang.split("-")[0];
                   const placeholders: Record<string, string> = {
                     de: "Frag MISSI was du willst… oder drück Leertaste zum Sprechen",
+                    en: "Ask MISSI anything… or press Space to talk",
                     fr: "Demandez à MISSI… ou appuyez sur Espace pour parler",
                     es: "Pregunta a MISSI… o pulsa Espacio para hablar",
-                    en: "Ask MISSI anything… or press Space to talk",
+                    it: "Chiedi a MISSI… o premi Spazio per parlare",
+                    pt: "Pergunte ao MISSI… ou pressione Espaço para falar",
+                    ja: "MISSIに聞いてみて… またはスペースで話す",
+                    ko: "MISSI에게 물어보세요… 또는 스페이스를 눌러 말하기",
+                    zh: "问MISSI… 或按空格键说话",
                   };
                   return placeholders[lang] || placeholders.en;
                 })()}
@@ -2559,7 +2575,12 @@ export default function Home() {
             </div>
 
             <p className="text-[10px] text-zinc-400/50 text-center mt-3 font-medium">
-              Built for the Mistral AI Worldwide Hackathon 2026 by MiMi Tech AI · 10,000+ integrations via Composio · 6 Mistral models
+              {({
+                de: "Gebaut für den Mistral AI Worldwide Hackathon 2026 von MiMi Tech AI · 10.000+ Integrationen via Composio · 6 Mistral-Modelle",
+                fr: "Construit pour le Mistral AI Worldwide Hackathon 2026 par MiMi Tech AI · 10 000+ intégrations via Composio · 6 modèles Mistral",
+                es: "Construido para el Mistral AI Worldwide Hackathon 2026 por MiMi Tech AI · 10.000+ integraciones via Composio · 6 modelos Mistral",
+                en: "Built for the Mistral AI Worldwide Hackathon 2026 by MiMi Tech AI · 10,000+ integrations via Composio · 6 Mistral models",
+              } as Record<string, string>)[sttLang.split("-")[0]] || "Built for the Mistral AI Worldwide Hackathon 2026 by MiMi Tech AI · 10,000+ integrations via Composio · 6 Mistral models"}
             </p>
           </div>
         </div>
