@@ -1654,7 +1654,12 @@ export async function POST(req: NextRequest) {
                 for await (const event of stream) {
                   const delta = event.data?.choices?.[0]?.delta;
                   if (delta?.content) {
-                    const chunk = String(delta.content);
+                    // Handle both string and array content formats
+                    const rawContent = delta.content;
+                    const chunk = typeof rawContent === "string" ? rawContent 
+                      : Array.isArray(rawContent) ? rawContent.map((c: {type?: string; text?: string}) => typeof c === "string" ? c : c.text || "").join("")
+                      : String(rawContent);
+                    if (!chunk || chunk === "[object Object]") continue; // Skip malformed chunks
                     fullContent += chunk;
                     controller.enqueue(sseEvent("content_delta", chunk));
                     // Adaptive streaming pace — fast start, smooth middle, speed up for long responses
@@ -1806,7 +1811,11 @@ export async function POST(req: NextRequest) {
             finalContent = content;
           } else {
             finalContent = String(assistantMessage?.content || "I've completed the task.");
-            controller.enqueue(sseEvent("content_delta", finalContent));
+            // Ensure finalContent is clean string
+              const cleanFinal = typeof finalContent === "string" ? finalContent : String(finalContent);
+              if (cleanFinal && !cleanFinal.includes("[object Object]")) {
+                controller.enqueue(sseEvent("content_delta", cleanFinal));
+              }
           }
 
           // 8. Generate follow-up suggestions
