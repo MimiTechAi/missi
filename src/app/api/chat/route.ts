@@ -156,7 +156,14 @@ async function createPlan(userMessage: string): Promise<string[] | null> {
   const isComplex = complexIndicators.some((k) => lower.includes(k)) || 
     (lower.includes("and") && userMessage.length > 60);
 
-  if (!isComplex) return null;
+  // Don't plan for simple knowledge/lookup queries
+  const simpleQueryPatterns = [
+    /^(tell me|what is|who is|explain|define|describe|was ist|wer ist|erkläre)/i,
+    /^(how to|wie kann|wie geht)/i,
+  ];
+  const isSimple = simpleQueryPatterns.some(p => p.test(userMessage.trim())) && userMessage.length < 80;
+
+  if (!isComplex || isSimple) return null;
 
   try {
     const planResponse = await mistral.chat.complete({
