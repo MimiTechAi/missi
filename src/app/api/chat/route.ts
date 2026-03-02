@@ -289,13 +289,13 @@ const tools = [
     type: "function" as const,
     function: {
       name: "create_document",
-      description: "Create a structured document (report, summary, analysis, plan). Returns formatted markdown content that the user can download.",
+      description: "Create a premium, richly structured document. Use HTML tags for maximum visual impact. ALWAYS include: executive summary, data tables, key metrics with numbers, structured sections with h2/h3, bullet lists, blockquotes for key insights, and a conclusion. Write 800-2000 words minimum. Make it comprehensive and professional — like a McKinsey report or ChatGPT artifact.",
       parameters: {
         type: "object" as const,
         properties: {
-          title: { type: "string" as const, description: "Document title" },
-          content: { type: "string" as const, description: "Full document content in markdown format" },
-          type: { type: "string" as const, description: "Document type: 'report', 'summary', 'analysis', 'plan', 'email', 'article'" },
+          title: { type: "string" as const, description: "Document title — clear, specific, professional" },
+          content: { type: "string" as const, description: "Full document body in HTML. Use: <h2> sections, <h3> subsections, <p> paragraphs, <table> data tables, <ul>/<ol> lists, <blockquote> key insights, <strong> emphasis, <code> technical terms. Include real data, statistics, comparisons. Minimum 800 words. Write like a senior analyst at a top consulting firm." },
+          type: { type: "string" as const, description: "Document type: 'report', 'summary', 'analysis', 'plan', 'email', 'article', 'comparison', 'guide'" },
         },
         required: ["title", "content"],
       },
@@ -859,6 +859,7 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
       const dateStr = now.toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"});
       const styledContent = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${args.title || "Document"}</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{--primary:#f97316;--primary-light:#fff7ed;--primary-dark:#ea580c;--text:#0f172a;--text-secondary:#64748b;--bg:#ffffff;--bg-alt:#f8fafc;--border:#e2e8f0;--radius:12px}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -902,6 +903,34 @@ pre code{background:none;color:inherit;padding:0}
 .doc-footer .brand{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary)}
 .doc-footer .logo{width:24px;height:24px;background:var(--primary);border-radius:6px;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:11px}
 .doc-footer .powered{font-size:11px;color:#94a3b8}
+/* Metric Grid */
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin:24px 0}
+.stat-card{background:linear-gradient(135deg,var(--primary-light),#fef3c7);border:1px solid #fed7aa;border-radius:var(--radius);padding:24px;text-align:center}
+.stat-card .number{font-size:32px;font-weight:800;color:var(--primary-dark);line-height:1}
+.stat-card .label{font-size:13px;color:var(--text-secondary);margin-top:8px;font-weight:500}
+/* Info Card */
+.info-card{background:var(--bg-alt);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin:20px 0}
+.info-card.warning{border-left:4px solid #eab308;background:#fefce8}
+.info-card.success{border-left:4px solid #10b981;background:#ecfdf5}
+.info-card.danger{border-left:4px solid #ef4444;background:#fef2f2}
+/* Comparison */
+.pros-cons{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}
+.pros{background:#ecfdf5;border:1px solid #86efac;border-radius:var(--radius);padding:20px}
+.pros h4{color:#059669;margin-bottom:12px}
+.cons{background:#fef2f2;border:1px solid #fca5a5;border-radius:var(--radius);padding:20px}
+.cons h4{color:#dc2626;margin-bottom:12px}
+/* Progress bars */
+.progress-bar{background:#e2e8f0;border-radius:20px;height:8px;margin:8px 0;overflow:hidden}
+.progress-fill{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--primary),var(--primary-dark))}
+/* Tags */
+.tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;margin:2px 4px}
+.tag-orange{background:var(--primary-light);color:var(--primary-dark)}
+.tag-blue{background:#eff6ff;color:#2563eb}
+.tag-green{background:#ecfdf5;color:#059669}
+/* Timeline */
+.timeline-item{position:relative;padding-left:28px;padding-bottom:20px;border-left:2px solid var(--border)}
+.timeline-item::before{content:'';position:absolute;left:-5px;top:4px;width:8px;height:8px;border-radius:50%;background:var(--primary)}
+.timeline-item:last-child{border-left:none}
 /* Animations */
 @media print{.page{padding:24px}.doc-header .meta-bar{background:white}}
 </style></head><body>
@@ -1675,7 +1704,7 @@ If the user asks about weather, time, stocks, news, or any real-time data — yo
 | Random fact/trivia | random_fact | Interesting facts |
 | GitHub repos, issues, PRs | get_github | repos, issues, create_issue |
 | Analyze data | analyze_data | Statistical analysis |
-| Generate chart/graph | generate_chart | Bar, line, pie, area, scatter |
+| Generate chart/graph | generate_chart | Bar (comparisons), Line (trends), Pie (proportions), Area (cumulative) |
 | Search files | search_files | Local file search |
 | Get location | get_location | Browser GPS permission required |
 </tool_routing>
@@ -1699,6 +1728,18 @@ When a Composio tool returns an auth error, tell the user to click the correspon
 4. For multi-step research: web_search → read_webpage → analyze → create_document.
 5. ALWAYS use create_document for reports, summaries, comparisons, or analyses.
 6. After completing a task, suggest 1-2 natural follow-up actions.
+10. DOCUMENT QUALITY RULES (create_document):
+    - Write like a senior McKinsey/BCG analyst. Professional, data-driven, insightful.
+    - MINIMUM 800 words. Be comprehensive — never superficial.
+    - ALWAYS include: Executive Summary (2-3 sentences), Key Metrics (numbers/stats in bold), structured sections (h2/h3), data tables where applicable, key takeaway quotes (blockquote), and a Conclusion with actionable next steps.
+    - Use HTML tags in content: <h2>, <h3>, <p>, <table>, <tr>, <th>, <td>, <ul>, <ol>, <li>, <blockquote>, <strong>, <code>.
+    - Include real statistics, percentages, comparisons, and data points — never vague statements.
+    - For comparisons: ALWAYS include a comparison table with criteria rows.
+    - For analyses: include a SWOT or pros/cons section.
+    - For trends: include year-over-year data with growth rates.
+    - The document template has CSS classes: use <div class="stat-card"><div class="number">42%</div><div class="label">Growth Rate</div></div> for highlight metrics.
+    - Use <div class="info-card"> for callout boxes with key information.
+    - NEVER write generic filler text. Every sentence must carry information value.
 7. When multiple tools are needed, state your brief plan, then execute all steps.
 8. If a tool returns empty results, say "No results found" — never blame the connection.
 9. Try tools first, suggest reconnection only on explicit auth errors.
