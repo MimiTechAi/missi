@@ -1722,12 +1722,30 @@ export async function POST(req: NextRequest) {
                 for await (const event of stream) {
                   const delta = event.data?.choices?.[0]?.delta;
                   if (delta?.content) {
-                    // Handle both string and array content formats
+                    // BULLETPROOF chunk extraction — handles all Mistral response formats
                     const rawContent = delta.content;
-                    const chunk = typeof rawContent === "string" ? rawContent 
-                      : Array.isArray(rawContent) ? rawContent.map((c: {type?: string; text?: string}) => typeof c === "string" ? c : c.text || "").join("")
-                      : String(rawContent);
-                    if (!chunk || chunk === "[object Object]") continue; // Skip malformed chunks
+                    let chunk = "";
+                    if (typeof rawContent === "string") {
+                      chunk = rawContent;
+                    } else if (Array.isArray(rawContent)) {
+                      chunk = rawContent
+                        .map((c: unknown) => {
+                          if (typeof c === "string") return c;
+                          if (c && typeof c === "object") {
+                            const o = c as Record<string, unknown>;
+                            if (typeof o.text === "string") return o.text;
+                            if (typeof o.content === "string") return o.content;
+                          }
+                          return "";
+                        })
+                        .filter(Boolean)
+                        .join("");
+                    } else if (rawContent && typeof rawContent === "object") {
+                      const o = rawContent as Record<string, unknown>;
+                      chunk = typeof o.text === "string" ? o.text : typeof o.content === "string" ? o.content : "";
+                    }
+                    // Never stream [object Object]
+                    if (!chunk || chunk.includes("[object Object]") || chunk.includes("[object ")) continue;
                     fullContent += chunk;
                     controller.enqueue(sseEvent("content_delta", chunk));
                     // Adaptive streaming pace — fast start, smooth middle, speed up for long responses
@@ -1804,8 +1822,10 @@ export async function POST(req: NextRequest) {
               const duration = Date.now() - start;
 
               // Stream result as soon as THIS tool finishes
+              // Full content for documents/charts; truncate others for stream efficiency
+              const isFullContent = fn.name === "create_document" || fn.name === "generate_chart";
               controller.enqueue(sseEvent("tool_result", {
-                tool: fn.name, args, result: result.slice(0, 500), duration,
+                tool: fn.name, args, result: isFullContent ? result : result.slice(0, 500), duration,
               }));
 
               return { call, fn, args, result, duration };
@@ -1918,7 +1938,11 @@ Example: ["Vergleiche das mit GPT-4","Zeig mir den Trend","Erstelle einen Berich
           controller.enqueue(sseEvent("content_done", finalContent));
           controller.enqueue(sseEvent("done", {
             model: route, plan, documents, suggestions,
-            toolResults: toolResults.map(t => ({ tool: t.tool, args: t.args, result: t.result.slice(0, 500), duration: t.duration })),
+            toolResults: toolResults.map(t => ({
+              tool: t.tool, args: t.args,
+              result: (t.tool === "create_document" || t.tool === "generate_chart") ? t.result : t.result.slice(0, 500),
+              duration: t.duration
+            })),
             usage: { totalRounds: rounds, toolCalls: toolResults.length },
           }));
 

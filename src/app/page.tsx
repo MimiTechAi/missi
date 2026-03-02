@@ -1667,6 +1667,38 @@ export default function Home() {
 
 
 
+
+  // ═══ DEMO MODE — MISSI introduces herself for video recording ═══
+  const startDemo = useCallback(async () => {
+    const steps = [
+      { msg: "Hey MISSI! Introduce yourself — what are you and what can you do?", wait: 18000 },
+      { msg: "Show me the weather in Berlin right now", wait: 12000 },
+      { msg: "What are the latest AI news today?", wait: 18000 },
+      { msg: "Check my emails and calendar", wait: 14000 },
+      { msg: "Tesla stock price and Bitcoin", wait: 10000 },
+      { msg: "Show my GitHub repos", wait: 8000 },
+      { msg: "Create a pie chart: Python 35%, JavaScript 28%, TypeScript 20%, Rust 10%, Go 7%", wait: 12000 },
+    ];
+    
+    for (let i = 0; i < steps.length; i++) {
+      await new Promise(r => setTimeout(r, i === 0 ? 1500 : 3000));
+      // Type effect — show message appearing character by character
+      const input = document.querySelector("input") as HTMLInputElement;
+      if (input) {
+        input.focus();
+        const msg = steps[i].msg;
+        for (let c = 0; c < msg.length; c++) {
+          input.value = msg.substring(0, c + 1);
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          await new Promise(r => setTimeout(r, 25 + Math.random() * 20));
+        }
+        await new Promise(r => setTimeout(r, 500));
+      }
+      sendMessage(steps[i].msg);
+      await new Promise(r => setTimeout(r, steps[i].wait));
+    }
+  }, [sendMessage]);
+
   return (
     <ErrorBoundary>
     <div
@@ -2506,48 +2538,52 @@ export default function Home() {
 
       <audio ref={audioRef} crossOrigin="anonymous" />
 
-      {/* ── Artifact Panel — Claude-style side canvas ── */}
+      {/* ── Canvas Panel — fullscreen document/slide viewer ── */}
       {artifactPanel && (
-        <div className="fixed inset-0 z-50 flex">
+        <div className="fixed inset-0 z-50 flex" style={{ animation: "fadeIn 0.2s ease-out" }}>
           {/* Backdrop */}
-          <div className="flex-1 bg-black/20 backdrop-blur-sm" onClick={() => setArtifactPanel(null)} />
-          {/* Panel */}
-          <div className="w-[640px] max-w-[95vw] bg-white shadow-2xl flex flex-col artifact-enter border-l border-zinc-200">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 bg-zinc-50/50 backdrop-blur-md sticky top-0 z-10">
-              <div className="flex items-center gap-2.5">
-                <span className="text-lg">✨</span>
-                <div>
-                  <p className="text-[14px] font-semibold text-zinc-800">{artifactPanel.title}</p>
-                  <p className="text-[11px] text-zinc-400 capitalize">{artifactPanel.type || "document"}</p>
+          <div className="flex-1 bg-black/30 backdrop-blur-md" onClick={() => setArtifactPanel(null)} />
+          {/* Panel — wider for documents */}
+          <div className="w-[720px] max-w-[95vw] h-full bg-white shadow-2xl flex flex-col border-l border-zinc-200" style={{ animation: "slideInRight 0.3s ease-out" }}>
+            {/* Browser-style header with traffic lights */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-200 bg-gradient-to-b from-zinc-100 to-zinc-50">
+              <div className="flex items-center gap-3">
+                <div className="flex gap-1.5">
+                  <button onClick={() => setArtifactPanel(null)} className="w-3 h-3 rounded-full bg-red-400 hover:bg-red-500 transition-colors" title="Close" />
+                  <span className="w-3 h-3 rounded-full bg-amber-400" />
+                  <button onClick={() => {
+                    const win = window.open("", "_blank");
+                    if (win) { win.document.write(artifactPanel.content); win.document.close(); }
+                  }} className="w-3 h-3 rounded-full bg-emerald-400 hover:bg-emerald-500 transition-colors" title="Open fullscreen" />
+                </div>
+                <div className="flex items-center gap-2 bg-white/80 rounded-lg px-3 py-1 border border-zinc-200 min-w-[200px]">
+                  <span className="text-[10px] text-orange-500 font-bold">MISSI</span>
+                  <span className="text-[12px] text-zinc-600 font-medium truncate">{artifactPanel.title}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 <button onClick={() => { navigator.clipboard.writeText(artifactPanel.content); }}
-                  className="px-2.5 py-1.5 rounded-lg text-[12px] text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 transition-colors" title="Copy">
-                  Copy
+                  className="px-2.5 py-1 rounded-md text-[11px] text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 transition-colors font-medium" title="Copy">
+                  📋 Copy
                 </button>
                 <button onClick={() => downloadDocument(artifactPanel as Document)}
-                  className="px-2.5 py-1.5 rounded-lg text-[12px] text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 transition-colors" title="Download">
-                  Download
-                </button>
-                <button onClick={() => setArtifactPanel(null)}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  className="px-2.5 py-1 rounded-md text-[11px] text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 transition-colors font-medium" title="Download">
+                  ⬇ Download
                 </button>
               </div>
             </div>
-            {/* Content — HTML or Markdown */}
-            <div className="flex-1 overflow-y-auto">
-              {artifactPanel.content.includes("<!DOCTYPE html") || artifactPanel.content.includes("<html") ? (
+            {/* Content — HTML renders live, Markdown with styling */}
+            <div className="flex-1 overflow-hidden bg-white">
+              {artifactPanel.content.includes("<!DOCTYPE html") || artifactPanel.content.includes("<html") || artifactPanel.content.includes("<h1") ? (
                 <iframe
                   srcDoc={artifactPanel.content}
                   className="w-full h-full border-0"
-                  sandbox="allow-same-origin"
+                  sandbox="allow-same-origin allow-scripts"
                   title={artifactPanel.title}
+                  style={{ minHeight: "100%" }}
                 />
               ) : (
-                <div className="px-6 py-5 prose prose-zinc prose-sm max-w-none text-[14px] leading-[1.8] prose-headings:text-zinc-800 prose-headings:font-semibold prose-code:text-orange-600 prose-code:bg-orange-50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-zinc-900 prose-pre:text-zinc-100 prose-pre:rounded-xl prose-pre:text-[13px] prose-a:text-orange-600">
+                <div className="px-8 py-6 overflow-y-auto h-full prose prose-zinc prose-sm max-w-none text-[14px] leading-[1.8] prose-headings:text-zinc-800 prose-headings:font-semibold prose-code:text-orange-600 prose-code:bg-orange-50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-zinc-900 prose-pre:text-zinc-100 prose-pre:rounded-xl prose-pre:text-[13px] prose-a:text-orange-600">
                   <div className="max-w-2xl mx-auto w-full">
                     <ReactMarkdown>{artifactPanel.content}</ReactMarkdown>
                   </div>
