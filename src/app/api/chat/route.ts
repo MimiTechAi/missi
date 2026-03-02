@@ -1699,7 +1699,7 @@ export async function POST(req: NextRequest) {
 
             fullMessages.push({
               role: "assistant",
-              content: assistantMessage.content ? String(assistantMessage.content) : "",
+              content: typeof assistantMessage.content === "string" ? assistantMessage.content : (Array.isArray(assistantMessage.content) ? assistantMessage.content.map((c: {type?: string; text?: string}) => c.text || "").join("") : JSON.stringify(assistantMessage.content || "")),
               toolCalls: assistantMessage.toolCalls,
             });
 
@@ -1722,10 +1722,12 @@ export async function POST(req: NextRequest) {
               const toolPromise = permissionTools.includes(fn.name)
                 ? executePermissionTool(fn.name, args, permContext)
                 : executeTool(fn.name, args);
-              const result = await Promise.race([
+              const rawResult = await Promise.race([
                 toolPromise,
                 new Promise<string>((_, reject) => setTimeout(() => reject(new Error("Tool timeout")), 30000))
               ]).catch(e => `Tool execution failed: ${e instanceof Error ? e.message : "timeout"}`);
+              // Ensure result is always a string (never [object Object])
+              const result = typeof rawResult === "string" ? rawResult : JSON.stringify(rawResult);
               const duration = Date.now() - start;
 
               // Stream result as soon as THIS tool finishes

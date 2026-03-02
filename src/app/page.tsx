@@ -2341,16 +2341,21 @@ export default function Home() {
 
               {/* ── Live Browsing Panel — floating mini-window ── */}
               {isLoading && browsingActivities.length > 0 && showBrowsingPanel && (
-                <div className="ml-8 mb-3 bg-white border border-zinc-200 rounded-xl shadow-lg overflow-hidden max-w-[420px] animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  {/* Header */}
-                  <div className="flex items-center justify-between px-3 py-2 bg-zinc-50 border-b border-zinc-100">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                      <span className="text-[11px] font-semibold text-zinc-600">Live Browsing</span>
-                      <span className="text-[10px] text-zinc-400">{browsingActivities.filter(b => b.status === "done").length}/{browsingActivities.length} pages</span>
+                <div className="ml-8 mb-3 bg-white border border-zinc-200 rounded-2xl shadow-xl overflow-hidden max-w-[460px]" style={{ animation: "slideInUp 0.3s ease-out" }}>
+                  {/* Browser Chrome — Manus-style */}
+                  <div className="flex items-center gap-1.5 px-3 py-2.5 bg-gradient-to-b from-zinc-100 to-zinc-50 border-b border-zinc-200">
+                    <div className="flex gap-1.5 mr-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
                     </div>
+                    <div className="flex-1 flex items-center gap-1.5 bg-white rounded-lg px-2.5 py-1 border border-zinc-200 text-[11px] text-zinc-500">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                      <span className="truncate">{browsingActivities[browsingActivities.length - 1]?.url?.replace("search://", "🔍 ") || "MISSI Browser"}</span>
+                    </div>
+                    <span className="text-[10px] text-zinc-400 ml-1">{browsingActivities.filter(b => b.status === "done").length}/{browsingActivities.length}</span>
                     <button onClick={() => setShowBrowsingPanel(false)}
-                      className="w-5 h-5 rounded flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors">
+                      className="w-5 h-5 rounded flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors ml-1">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                   </div>
