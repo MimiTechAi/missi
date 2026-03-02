@@ -196,7 +196,20 @@ export default function Home() {
     gmailToken: string | null;
     folderFiles: string[] | null;
   }>({ gmailToken: null, folderFiles: null });
-  const [sttLang, setSttLang] = useState("en-US");
+  const [sttLang, setSttLang] = useState(() => {
+    if (typeof window !== "undefined") {
+      const browserLang = navigator.language || "en-US";
+      // Map common browser languages to supported STT languages
+      const langMap: Record<string, string> = {
+        "de": "de-DE", "en": "en-US", "fr": "fr-FR", "es": "es-ES",
+        "it": "it-IT", "pt": "pt-BR", "ja": "ja-JP", "ko": "ko-KR",
+        "zh": "zh-CN", "ru": "ru-RU",
+      };
+      const short = browserLang.split("-")[0];
+      return langMap[short] || browserLang;
+    }
+    return "en-US";
+  });
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [composioConnections, setComposioConnections] = useState<Record<string, boolean>>({});
   const [connectingToolkit, setConnectingToolkit] = useState<string | null>(null);
@@ -250,7 +263,7 @@ export default function Home() {
   const connectedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const sttLangRef = useRef("en-US");
+  const sttLangRef = useRef(sttLang);
   const sendMessageRef = useRef<(text: string, image?: string, fromVoice?: boolean) => Promise<void>>(undefined);
   const startListeningRef = useRef<() => void>(undefined);
   const bargeInStreamRef = useRef<MediaStream | null>(null);
