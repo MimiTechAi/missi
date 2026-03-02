@@ -4,7 +4,12 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import dynamic from "next/dynamic";
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import VoiceOrb from "@/components/VoiceOrb";
-const ReactMarkdown = dynamic(() => import("react-markdown"), { ssr: false, loading: () => <div className="skeleton-shimmer h-4 w-3/4 rounded"></div> });
+import remarkGfm from "remark-gfm";
+const ReactMarkdownBase = dynamic(() => import("react-markdown"), { ssr: false, loading: () => <div className="skeleton-shimmer h-4 w-3/4 rounded"></div> });
+// Wrapper that always includes GFM (tables, strikethrough, task lists)
+const ReactMarkdown = ({ children, ...props }: { children: string; [key: string]: unknown }) => (
+  <ReactMarkdownBase remarkPlugins={[remarkGfm]} {...props}>{children}</ReactMarkdownBase>
+);
 
 // ============================================================
 // Types
