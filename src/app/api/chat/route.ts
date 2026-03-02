@@ -96,7 +96,8 @@ function routeModel(message: string, hasImage: boolean): ModelRoute {
     "logic", "mathematical", "equation", "solve", "proof",
     "why does", "explain why", "how does.*work", "philosophy",
     "ethical", "dilemma", "paradox", "puzzle", "riddle",
-    "warum", "erkläre warum", "beweise", "logisch", "mathematisch",
+    "warum", "erkläre warum", "beweise", "logisch", "mathematisch", "analyse",
+    "compare", "evaluate", "trade-off", "pros and cons", "bewerte", "vergleiche",
     "schritt für schritt", "denk nach",
   ];
   if (reasoningKeywords.some((k) => lower.includes(k)) || (lower.includes("?") && wordCount > 30)) {
@@ -124,7 +125,9 @@ function routeModel(message: string, hasImage: boolean): ModelRoute {
   const creativeKeywords = [
     "story", "poem", "creative", "fiction", "imagine", "fantasy",
     "write me a", "compose", "narrative", "gedicht", "geschichte",
-    "schreib mir", "erzähl", "kreativ",
+    "schreib mir", "erzähl", "kreativ", "song", "lyrics", "haiku", "märchen", "fabel",
+    "write about", "describe a", "paint a picture", "novel",
+    "dialogue", "monologue", "speech", "toast", "rede",
   ];
   if (creativeKeywords.some((k) => lower.includes(k))) {
     return {
@@ -191,7 +194,7 @@ If the task is simple (1 step), return null.`,
 }
 
 // ============================================================
-// EXPANDED TOOL DEFINITIONS (12 Tools)
+// EXPANDED TOOL DEFINITIONS (27 Tools)
 // ============================================================
 const tools = [
   {
@@ -1445,7 +1448,7 @@ Day of week: ${now.toLocaleDateString("en-US", { weekday: "long", timeZone: tz }
 - Proactive: suggest relevant follow-ups and anticipate needs
 - Use specific numbers, dates, facts — never be vague when precision is available
 - Dry humor when natural, never forced
-- When introducing yourself: give a compelling 3-4 sentence overview (voice-first AI OS, 4 Mistral models, 25+ tools + 10,000+ via Composio, multi-language), then demonstrate with 2-3 tool calls
+- When introducing yourself: give a compelling 3-4 sentence overview (voice-first AI OS, 6 Mistral models, 27 tools + 10,000+ via Composio, multi-language), then demonstrate with 2-3 tool calls
 </personality>
 
 <language_rules>
@@ -1496,6 +1499,7 @@ If the user asks about weather, time, stocks, news, or any real-time data — yo
 | Change voice | change_voice | sarah, aria, rachel, eric, roger, charlie |
 | Random fact/trivia | random_fact | Interesting facts |
 | Analyze data | analyze_data | Statistical analysis |
+| Generate chart/graph | generate_chart | Bar, line, pie, area, scatter |
 | Search files | search_files | Local file search |
 | Get location | get_location | Browser GPS permission required |
 </tool_routing>

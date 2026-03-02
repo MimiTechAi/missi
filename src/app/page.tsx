@@ -1218,10 +1218,11 @@ export default function Home() {
   };
 
   const downloadDocument = (doc: Document) => {
-    const blob = new Blob([`# ${doc.title}\n\n${doc.content}`], { type: "text/markdown" });
+    const isHtml = doc.content.includes("<!DOCTYPE html") || doc.content.includes("<html");
+    const blob = new Blob([isHtml ? doc.content : `# ${doc.title}\n\n${doc.content}`], { type: isHtml ? "text/html" : "text/markdown" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `${doc.title.replace(/\s+/g, "-").toLowerCase()}.md`;
+    a.href = url; a.download = `${doc.title.replace(/\s+/g, "-").toLowerCase()}.${isHtml ? "html" : "md"}`;
     a.click(); URL.revokeObjectURL(url);
   };
 
@@ -1660,38 +1661,6 @@ export default function Home() {
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleImageUpload(f); }}
     >
-      {/* FIX #20: Artifact Panel — document viewer */}
-      {artifactPanel && (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setArtifactPanel(null)} />
-          <div className="ml-auto relative w-full max-w-2xl bg-white shadow-2xl flex flex-col artifact-enter">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200">
-              <div>
-                <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">{artifactPanel.type}</p>
-                <h3 className="text-lg font-semibold text-zinc-800">{artifactPanel.title}</h3>
-              </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => { const blob = new Blob([`# ${artifactPanel.title}\n\n${artifactPanel.content}`], { type: "text/markdown" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `${artifactPanel.title.replace(/\s+/g, "-").toLowerCase()}.md`; a.click(); URL.revokeObjectURL(url); }}
-                  className="px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-600 text-[12px] font-medium transition-colors flex items-center gap-1.5">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Download
-                </button>
-                <button onClick={() => copyToClipboard(artifactPanel.content)}
-                  className="px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-600 text-[12px] font-medium transition-colors">
-                  Copy
-                </button>
-                <button onClick={() => setArtifactPanel(null)} className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 py-6 prose prose-zinc max-w-none">
-              <ReactMarkdown>{artifactPanel.content}</ReactMarkdown>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Drop overlay */}
       {dragOver && (
         <div className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm flex items-center justify-center border-2 border-dashed border-blue-400 m-4 rounded-2xl">
@@ -2183,7 +2152,7 @@ export default function Home() {
                         {/* Inline Charts */}
                         {msg.toolCalls?.filter(t => t.chartSvg).map((t, j) => (
                           <div key={"chart-" + j} className="mt-3 p-4 rounded-2xl bg-white border border-zinc-200/60 shadow-sm">
-                            <div dangerouslySetInnerHTML={{ __html: t.chartSvg || "" }} className="w-full max-w-[400px] mx-auto" />
+                            <div dangerouslySetInnerHTML={{ __html: t.chartSvg || "" }} className="w-full max-w-[420px] mx-auto bg-white rounded-xl border border-zinc-100 p-4 shadow-sm" />
                           </div>
                         ))}
 
@@ -2553,13 +2522,22 @@ export default function Home() {
                 </button>
               </div>
             </div>
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto px-6 py-5">
-              <div className="prose prose-zinc prose-sm max-w-none text-[14px] leading-[1.8] prose-headings:text-zinc-800 prose-headings:font-semibold prose-code:text-orange-600 prose-code:bg-orange-50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-zinc-900 prose-pre:text-zinc-100 prose-pre:rounded-xl prose-pre:text-[13px] prose-a:text-orange-600">
-                <div className="max-w-2xl mx-auto w-full">
-                  <ReactMarkdown>{artifactPanel.content}</ReactMarkdown>
+            {/* Content — HTML or Markdown */}
+            <div className="flex-1 overflow-y-auto">
+              {artifactPanel.content.includes("<!DOCTYPE html") || artifactPanel.content.includes("<html") ? (
+                <iframe
+                  srcDoc={artifactPanel.content}
+                  className="w-full h-full border-0"
+                  sandbox="allow-same-origin"
+                  title={artifactPanel.title}
+                />
+              ) : (
+                <div className="px-6 py-5 prose prose-zinc prose-sm max-w-none text-[14px] leading-[1.8] prose-headings:text-zinc-800 prose-headings:font-semibold prose-code:text-orange-600 prose-code:bg-orange-50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-zinc-900 prose-pre:text-zinc-100 prose-pre:rounded-xl prose-pre:text-[13px] prose-a:text-orange-600">
+                  <div className="max-w-2xl mx-auto w-full">
+                    <ReactMarkdown>{artifactPanel.content}</ReactMarkdown>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
