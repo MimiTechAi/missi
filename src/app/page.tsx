@@ -948,6 +948,19 @@ export default function Home() {
   // ============================================================
   // Voxtral STT — Mistral-native Speech-to-Text
   // Records via MediaRecorder, detects silence via AudioContext,
+  // Dynamic page title — update with first conversation topic
+  useEffect(() => {
+    if (messages.length === 0) {
+      document.title = "MISSI — Voice-First AI OS by MiMi Tech AI";
+    } else {
+      const lastUserMsg = messages.filter(m => m.role === "user").slice(-1)[0];
+      if (lastUserMsg) {
+        const topic = lastUserMsg.content.slice(0, 40).trim();
+        document.title = `${topic}… — MISSI`;
+      }
+    }
+  }, [messages]);
+
   // sends audio to /api/stt (Voxtral) for transcription
   // ============================================================
   const startListening = useCallback(() => {
@@ -1885,7 +1898,7 @@ export default function Home() {
                       {icon:"📈", text:"Tesla & Bitcoin Preis"},
                       {icon:"💻", text:"Python-Skript schreiben"},
                       {icon:"📧", text:"Zeig meine E-Mails"},
-                      {icon:"📅", text:"Was steht im Kalender?"},
+                      {icon:"📊", text:"Erstelle einen Chart mit Umsatzdaten"},
                     ],
                     "en": [
                       {icon:"🔍", text:"Latest AI news today"},
@@ -1893,7 +1906,7 @@ export default function Home() {
                       {icon:"📈", text:"Tesla & Bitcoin price"},
                       {icon:"💻", text:"Write a Python script"},
                       {icon:"📧", text:"Check my emails"},
-                      {icon:"📅", text:"What's on my calendar?"},
+                      {icon:"📊", text:"Create a bar chart of AI funding 2020-2025"},
                     ],
                     "fr": [
                       {icon:"🔍", text:"Actualités IA du jour"},

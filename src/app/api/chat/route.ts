@@ -172,7 +172,7 @@ async function createPlan(userMessage: string): Promise<string[] | null> {
         {
           role: "system",
           content: `You are MISSI's task planner. Break complex requests into 2-5 concrete execution steps.
-Available tools: web_search, read_webpage, get_weather, get_time, calculate, run_code, create_document, translate, analyze_data, generate_code, summarize_text, search_gmail, get_calendar, get_stock_price, get_crypto_price, wikipedia, news_headlines, unit_convert, define_word, random_fact, analyze_document, generate_chart.
+Available tools: web_search, read_webpage, get_weather, get_time, calculate, run_code, create_document, translate, analyze_data, generate_code, summarize_text, search_gmail, get_calendar, get_github, get_stock_price, get_crypto_price, wikipedia, news_headlines, unit_convert, define_word, random_fact, analyze_document, generate_chart.
 Rules: Each step = one tool call. Include search_gmail and get_calendar when relevant. Be specific about tool names.
 IMPORTANT: If the user asks for a report, summary, or document, ALWAYS include "Create a document with the findings" as the LAST step.
 Return ONLY a JSON array of step descriptions. No markdown, no explanation.
@@ -559,6 +559,24 @@ const tools = [
           category: { type: "string" as const, description: "Category: 'science', 'history', 'nature', 'space', 'technology', 'random'" },
         },
         required: [],
+      },
+    },
+  },
+
+  {
+    type: "function" as const,
+    function: {
+      name: "get_github",
+      description: "Access GitHub repositories, issues, pull requests, and code. Only available when GitHub is connected via sidebar.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          action: { type: "string" as const, description: "Action: 'repos' (list repos), 'issues' (list issues for repo), 'create_issue' (create new issue)" },
+          repo: { type: "string" as const, description: "Repository name, e.g. 'owner/repo'" },
+          title: { type: "string" as const, description: "Issue title (for create_issue)" },
+          body: { type: "string" as const, description: "Issue body/description (for create_issue)" },
+        },
+        required: ["action"],
       },
     },
   },
@@ -1395,7 +1413,48 @@ async function executePermissionTool(name: string, args: Record<string, string>,
       }
     }
 
-    
+
+    case "get_github": {
+      if (!process.env.COMPOSIO_API_KEY) return "GitHub not connected. Click the 🐙 icon in the sidebar to connect.";
+      try {
+        const action = args.action || "repos";
+        if (action === "repos") {
+          const data = await composioExecute("GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER", "missi_demo_user", {
+            visibility: "all", sort: "updated", per_page: 10,
+          });
+          const repos = data?.data || data || [];
+          if (!repos.length) return "No repositories found. Make sure GitHub is connected.";
+          return repos.slice(0, 10).map((r: Record<string, unknown>) =>
+            `🐙 **${r.full_name || r.name}**${r.stargazers_count ? " ⭐" + r.stargazers_count : ""}${r.language ? " · " + r.language : ""}${r.description ? "\n   " + String(r.description).slice(0, 100) : ""}`
+          ).join("\n\n");
+        }
+        if (action === "issues") {
+          const [owner, repo] = (args.repo || "").split("/");
+          if (!repo) return "Please specify a repository as 'owner/repo'";
+          const data = await composioExecute("GITHUB_LIST_REPOSITORY_ISSUES", "missi_demo_user", {
+            owner, repo, state: "open", per_page: 10,
+          });
+          const issues = data?.data || [];
+          if (!issues.length) return `No open issues in ${args.repo}.`;
+          return issues.slice(0, 10).map((i: Record<string, unknown>) =>
+            `#${i.number} **${i.title}** (${i.state}) — by ${(i.user as Record<string, string>)?.login || "unknown"}`
+          ).join("\n");
+        }
+        if (action === "create_issue") {
+          const [owner, repo] = (args.repo || "").split("/");
+          if (!repo || !args.title) return "Need repo (owner/repo) and title to create an issue.";
+          const data = await composioExecute("GITHUB_CREATE_AN_ISSUE", "missi_demo_user", {
+            owner, repo, title: args.title, body: args.body || "",
+          });
+          const issue = data?.data || data;
+          return `✅ Issue #${issue.number || "?"} created: **${args.title}**\n🔗 ${issue.html_url || "GitHub"}`;
+        }
+        return "Unknown GitHub action. Use: repos, issues, create_issue";
+      } catch (e) {
+        return `GitHub failed: ${e instanceof Error ? e.message : "unknown"}. Connect via sidebar.`;
+      }
+    }
+
     case "get_location": {
       const loc = context.location as string;
       if (!loc) return "Location not available. The user needs to grant location permission in their browser.";
@@ -1460,7 +1519,7 @@ Your responses will be read aloud by a text-to-speech engine, so:
 </language_rules>
 
 <tools>
-You have 27 built-in tools PLUS 10,000+ external integrations via Composio.
+You have 28 built-in tools PLUS 10,000+ external integrations via Composio.
 
 ABSOLUTE RULE: ALWAYS use the appropriate tool. NEVER answer from memory when a tool exists for the task.
 If the user asks about weather, time, stocks, news, or any real-time data — you MUST call the tool, even if you think you know the answer.
@@ -1491,6 +1550,7 @@ If the user asks about weather, time, stocks, news, or any real-time data — yo
 | Set reminder | set_reminder | Time-based reminders |
 | Change voice | change_voice | sarah, aria, rachel, eric, roger, charlie |
 | Random fact/trivia | random_fact | Interesting facts |
+| GitHub repos, issues, PRs | get_github | repos, issues, create_issue |
 | Analyze data | analyze_data | Statistical analysis |
 | Generate chart/graph | generate_chart | Bar, line, pie, area, scatter |
 | Search files | search_files | Local file search |
@@ -1713,7 +1773,7 @@ export async function POST(req: NextRequest) {
             }
 
             // Execute ALL tools in parallel (like a multi-agent system)
-            const permissionTools = ["search_gmail", "read_gmail", "search_files", "get_calendar", "get_location"];
+            const permissionTools = ["search_gmail", "read_gmail", "search_files", "get_calendar", "get_location", "get_github"];
             const toolPromises = assistantMessage.toolCalls.map(async (call) => {
               const fn = call.function;
               let args: Record<string, string> = {};

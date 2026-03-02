@@ -20,7 +20,11 @@ export async function POST(req: NextRequest) {
     // - eleven_turbo_v2_5: Best balance of quality + speed, supports 32 languages
     // - eleven_multilingual_v2: Highest quality for non-English, slightly slower
     // - eleven_flash_v2_5: Lowest latency for English-only
-    const modelId = lang === "en" ? "eleven_turbo_v2_5" : "eleven_multilingual_v2";
+    // turbo_v2_5 supports 32 languages including German, French, Spanish — use for all
+    // multilingual_v2 only needed for rare languages or maximum quality requirement
+    const modelId = ["en","de","fr","es","it","pt","nl","pl","ja","ko","zh"].includes(lang) 
+      ? "eleven_turbo_v2_5" 
+      : "eleven_multilingual_v2";
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
@@ -38,9 +42,9 @@ export async function POST(req: NextRequest) {
           text: text.slice(0, 5000),
           model_id: modelId,
           voice_settings: {
-            stability: 0.5,
+            stability: lang === "de" ? 0.45 : 0.5,   // German: slightly more natural variation
             similarity_boost: 0.85,
-            style: 0.3,
+            style: lang === "de" ? 0.25 : 0.3,        // German: less style exaggeration
             use_speaker_boost: true,
           },
           optimize_streaming_latency: 3,

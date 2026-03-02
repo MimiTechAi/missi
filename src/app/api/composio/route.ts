@@ -21,7 +21,6 @@ async function getToolRouterSession(): Promise<string | null> {
     const data = await res.json();
     _sessionId = data.session_id || null;
     _sessionCreated = Date.now();
-    console.log("[COMPOSIO] Tool Router Session:", _sessionId);
     return _sessionId;
   } catch (e) {
     console.error("[COMPOSIO] Session error:", e);
@@ -73,8 +72,7 @@ export async function POST(req: NextRequest) {
             }
           );
           const data = await res.json();
-          console.log("[COMPOSIO] Connect link for", toolkit, ":", JSON.stringify(data).substring(0, 200));
-          return NextResponse.json({
+                    return NextResponse.json({
             success: true,
             url: data.redirect_url || data.url || null,
             status: data.status || "initiated",
