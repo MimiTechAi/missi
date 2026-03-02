@@ -97,7 +97,7 @@ function routeModel(message: string, hasImage: boolean): ModelRoute {
     "compare", "evaluate", "trade-off", "pros and cons", "bewerte", "vergleiche",
     "schritt für schritt", "denk nach",
   ];
-  if (reasoningKeywords.some((k) => lower.includes(k)) || (lower.includes("?") && wordCount > 30)) {
+  if (reasoningKeywords.some((k) => lower.includes(k)) && wordCount < 200 || (lower.includes("?") && wordCount > 30 && wordCount < 150)) {
     return {
       model: "magistral-medium-latest",
       label: "Magistral",
@@ -625,29 +625,41 @@ const tools = [
 async function executeTool(name: string, args: Record<string, string>): Promise<string> {
   switch (name) {
     case "web_search": {
-      // Primary: DuckDuckGo (fast, 3-5s) with Mistral Conversations API as enrichment
+      // Primary: Mistral Conversations API (native web search with citations)
+      // This is the correct approach for Vercel server-side (DuckDuckGo HTML blocks server IPs)
       try {
-        // Step 1: Fast DuckDuckGo results
-        const ddgRes = await fetch(
-          `https://html.duckduckgo.com/html/?q=${encodeURIComponent(args.query)}`,
-          { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" } }
-        );
-        const html = await ddgRes.text();
-        const resultBlocks = html.match(/<div class="result results_links[\s\S]*?<\/div>\s*<\/div>/g) || [];
-        const extracted: string[] = [];
-        for (const block of resultBlocks.slice(0, 8)) {
-          const titleMatch = block.match(/class="result__a"[^>]*>([\s\S]*?)<\/a>/);
-          const urlMatch = block.match(/href="([^"]*?)"/);
-          const snippetMatch = block.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/[a-z]/);
-          const title = titleMatch?.[1]?.replace(/<[^>]*>/g, "").trim() || "";
-          const url = urlMatch?.[1] || "";
-          const snippet = snippetMatch?.[1]?.replace(/<[^>]*>/g, "").trim() || "";
-          if (title) extracted.push(`• **${title}**${snippet ? `\n  ${snippet}` : ""}${url ? `\n  🔗 ${url}` : ""}`);
+        const searchResponse = await mistral.beta.conversations.start({
+          model: "mistral-small-latest", // Small = faster for search
+          inputs: `Search the web for: ${args.query}. Return the top 5-8 results with titles, brief summaries, and URLs.`,
+          tools: [{ type: "web_search" as const }],
+          store: false,
+        });
+        
+        const results: string[] = [];
+        const refs: { title: string; url: string }[] = [];
+        
+        function extractText(obj: unknown): void {
+          if (!obj) return;
+          if (typeof obj === "string" && obj.length > 5) { results.push(obj); return; }
+          if (Array.isArray(obj)) { obj.forEach(extractText); return; }
+          if (typeof obj === "object") {
+            const o = obj as Record<string, unknown>;
+            if (typeof o.text === "string" && o.text.length > 2 && !o.text.startsWith("[object")) results.push(o.text);
+            if (typeof o.url === "string" && o.type === "tool_reference") {
+              refs.push({ title: String(o.title || o.url), url: String(o.url) });
+            }
+            if (Array.isArray(o.content)) extractText(o.content);
+            if (Array.isArray(o.outputs)) extractText(o.outputs);
+          }
         }
-        if (extracted.length > 0) {
-          return `🔍 Search results for "${args.query}":\n\n${extracted.join("\n\n")}`;
+        extractText(searchResponse.outputs || []);
+        
+        if (results.length > 0 || refs.length > 0) {
+          const body = results.filter(r => !r.startsWith("[object")).join("\n");
+          const refsStr = refs.length > 0 ? `\n\n**Sources:** ${refs.slice(0, 5).map(r => `[🔗 ${r.title.slice(0,50)}](${r.url})`).join(" · ")}` : "";
+          return `🔍 **${args.query}**\n\n${body}${refsStr}`;
         }
-      } catch { /* DuckDuckGo failed, try Mistral */ }
+      } catch { /* Mistral search failed */ }
       
       // Fallback: Mistral Conversations API (slower but richer)
       try {
