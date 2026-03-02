@@ -18,7 +18,6 @@ async function getComposioSession(): Promise<string | null> {
     });
     const data = await res.json();
     _composioSessionId = data.session_id || null;
-    console.log("[COMPOSIO] Tool Router Session created:", _composioSessionId);
     return _composioSessionId;
   } catch (e) {
     console.error("[COMPOSIO] Session creation failed:", e);
@@ -30,7 +29,6 @@ async function composioExecute(toolName: string, _userId: string, params: Record
   const sessionId = await getComposioSession();
   if (!sessionId) throw new Error("COMPOSIO_API_KEY not set or session creation failed");
   
-  console.log("[COMPOSIO] Executing via Tool Router:", toolName, "params:", JSON.stringify(params));
   
   try {
     const res = await fetch(`https://backend.composio.dev/api/v3/tool_router/session/${sessionId}/execute`, {
@@ -39,7 +37,6 @@ async function composioExecute(toolName: string, _userId: string, params: Record
       body: JSON.stringify({ tool_slug: toolName, arguments: params })
     });
     const result = await res.json();
-    console.log("[COMPOSIO] Result:", JSON.stringify(result).substring(0, 500));
     return result;
   } catch (e) {
     console.error("[COMPOSIO] Execute error:", e instanceof Error ? e.message : e);
@@ -603,19 +600,41 @@ const tools = [
 async function executeTool(name: string, args: Record<string, string>): Promise<string> {
   switch (name) {
     case "web_search": {
+      // Primary: DuckDuckGo (fast, 3-5s) with Mistral Conversations API as enrichment
       try {
-        // Use Mistral's native web search via Conversations API for reliable results + citations
+        // Step 1: Fast DuckDuckGo results
+        const ddgRes = await fetch(
+          `https://html.duckduckgo.com/html/?q=${encodeURIComponent(args.query)}`,
+          { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" } }
+        );
+        const html = await ddgRes.text();
+        const resultBlocks = html.match(/<div class="result results_links[\s\S]*?<\/div>\s*<\/div>/g) || [];
+        const extracted: string[] = [];
+        for (const block of resultBlocks.slice(0, 8)) {
+          const titleMatch = block.match(/class="result__a"[^>]*>([\s\S]*?)<\/a>/);
+          const urlMatch = block.match(/href="([^"]*?)"/);
+          const snippetMatch = block.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/[a-z]/);
+          const title = titleMatch?.[1]?.replace(/<[^>]*>/g, "").trim() || "";
+          const url = urlMatch?.[1] || "";
+          const snippet = snippetMatch?.[1]?.replace(/<[^>]*>/g, "").trim() || "";
+          if (title) extracted.push(`• **${title}**${snippet ? `\n  ${snippet}` : ""}${url ? `\n  🔗 ${url}` : ""}`);
+        }
+        if (extracted.length > 0) {
+          return `🔍 Search results for "${args.query}":\n\n${extracted.join("\n\n")}`;
+        }
+      } catch { /* DuckDuckGo failed, try Mistral */ }
+      
+      // Fallback: Mistral Conversations API (slower but richer)
+      try {
         const searchResponse = await mistral.beta.conversations.start({
           model: "mistral-large-latest",
           inputs: `Search the web for: ${args.query}. Return the top results with titles, snippets, and URLs.`,
           tools: [{ type: "web_search" as const }],
           store: false,
         });
-
-        // Extract text and references — handle all response formats robustly
+        
         const results: string[] = [];
         const refs: string[] = [];
-        const entries = searchResponse.outputs || [];
         
         function extractText(obj: unknown): void {
           if (!obj) return;
@@ -623,57 +642,25 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
           if (Array.isArray(obj)) { obj.forEach(extractText); return; }
           if (typeof obj === "object") {
             const o = obj as Record<string, unknown>;
-            // Text content
             if (typeof o.text === "string" && o.text.length > 2) results.push(o.text);
-            // Tool references (citations)
             if (typeof o.url === "string" && o.type === "tool_reference") {
               refs.push(`🔗 [${o.title || o.url}](${o.url})`);
             }
-            // Recurse into content arrays
             if (Array.isArray(o.content)) extractText(o.content);
             if (Array.isArray(o.outputs)) extractText(o.outputs);
           }
         }
         
-        extractText(entries);
+        extractText(searchResponse.outputs || []);
         
-        // Also check top-level response
-        const resp = searchResponse as Record<string, unknown>;
-        if (typeof resp.content === "string" && resp.content.length > 10) results.push(resp.content);
-        if (typeof resp.text === "string" && resp.text.length > 10) results.push(resp.text);
-
         if (results.length > 0) {
           const combined = results.join("\n");
           const refsStr = refs.length > 0 ? `\n\n**Sources:**\n${refs.join("\n")}` : "";
           return `🔍 Search results for "${args.query}":\n\n${combined}${refsStr}`;
         }
-        
-        // Last resort — serialize the raw response
-        const raw = JSON.stringify(searchResponse).substring(0, 3000);
-        if (raw.length > 50) return `🔍 Search results for "${args.query}":\n\n${raw}`;
-        return "No results found.";
-      } catch {
-        // Fallback to DuckDuckGo if Conversations API fails
-        try {
-          const res = await fetch(
-            `https://html.duckduckgo.com/html/?q=${encodeURIComponent(args.query)}`,
-            { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" } }
-          );
-          const html = await res.text();
-          const resultBlocks = html.match(/<div class="result results_links[\s\S]*?<\/div>\s*<\/div>/g) || [];
-          const extracted: string[] = [];
-          for (const block of resultBlocks.slice(0, 8)) {
-            const titleMatch = block.match(/class="result__a"[^>]*>([\s\S]*?)<\/a>/);
-            const urlMatch = block.match(/href="([^"]*?)"/);
-            const title = titleMatch?.[1]?.replace(/<[^>]*>/g, "").trim() || "";
-            const url = urlMatch?.[1] || "";
-            if (title) extracted.push(`• ${title}${url ? `\n  🔗 ${url}` : ""}`);
-          }
-          return extracted.length > 0 ? `🔍 Results for "${args.query}":\n\n${extracted.join("\n\n")}` : "No results found.";
-        } catch {
-          return "Web search is temporarily unavailable. I'll try to answer from my knowledge instead.";
-        }
-      }
+      } catch { /* Both failed */ }
+      
+      return `No results found for "${args.query}". Try rephrasing your query.`;
     }
 
     case "get_weather": {
@@ -1259,7 +1246,6 @@ async function executePermissionTool(name: string, args: Record<string, string>,
           query: args.query || "newer_than:7d",
           max_results: args.limit || 5,
         });
-        console.log("[search_gmail] Raw result:", JSON.stringify(data).substring(0, 1000));
         // Handle various response formats
         const messages = data?.data?.messages || data?.data || [];
         if (!messages.length) return `No emails found for: "${args.query}".`;
@@ -1550,7 +1536,6 @@ export async function POST(req: NextRequest) {
     const hasImage = !!image;
     // Vision: auto-switch to pixtral for image analysis
     if (hasImage) {
-      console.log("Image detected — routing to Pixtral Large");
     }
     // Permission context from frontend
     const permContext = {
