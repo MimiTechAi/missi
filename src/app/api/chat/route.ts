@@ -1774,7 +1774,9 @@ export async function POST(req: NextRequest) {
           let assistantMessage = response!.choices?.[0]?.message;
 
           if (!assistantMessage || (!assistantMessage.content && (!assistantMessage.toolCalls || assistantMessage.toolCalls.length === 0))) {
-            controller.enqueue(sseEvent("content_delta", "I'm ready! I can search the web in real-time, check weather and stocks, generate code, create reports, translate in 10 languages, and connect to Gmail, Calendar, GitHub and 10,000+ more tools. Just ask or say \"Hey MISSI\" 🎤"));
+            const greetingText = "I'm ready! I can search the web in real-time, check weather and stocks, generate code, create reports, translate in 10 languages, and connect to Gmail, Calendar, GitHub and 10,000+ more tools. Just ask or say \"Hey MISSI\" 🎤";
+            controller.enqueue(sseEvent("content_delta", greetingText));
+            controller.enqueue(sseEvent("content_done", greetingText));
             controller.enqueue(sseEvent("done", { toolResults: [], documents: [], usage: { totalRounds: 0, toolCalls: 0 } }));
             controller.close();
             return;
@@ -1935,7 +1937,7 @@ Example: ["Vergleiche das mit GPT-4","Zeig mir den Trend","Erstelle einen Berich
           } catch { /* suggestions are optional */ }
 
           // 9. Done with metadata
-          controller.enqueue(sseEvent("content_done", finalContent));
+          controller.enqueue(sseEvent("content_done", typeof finalContent === "string" ? finalContent : ""));
           controller.enqueue(sseEvent("done", {
             model: route, plan, documents, suggestions,
             toolResults: toolResults.map(t => ({

@@ -835,15 +835,21 @@ export default function Home() {
             }
 
             case "content_done": {
-              // Streaming complete — finalize content
-              streamedContent = String(eventData);
+              // Streaming complete — use accumulated content (deltas were already collected)
+              // Don't overwrite with eventData — it might be [object Object]
+              if (typeof eventData === "string" && eventData.length > streamedContent.length && !eventData.includes("[object Object]")) {
+                streamedContent = eventData;
+              }
               setLatestContent(streamedContent);
               break;
             }
 
             case "content":
-              streamedContent = String(eventData);
-              setLatestContent(streamedContent);
+              // Full content update — only if it's a clean string
+              if (typeof eventData === "string" && !eventData.includes("[object Object]")) {
+                streamedContent = eventData;
+                setLatestContent(streamedContent);
+              }
               break;
 
             case "done":
