@@ -1,49 +1,25 @@
-const CACHE_NAME = "missi-v1";
-const OFFLINE_URL = "/";
+const CACHE_NAME = "missi-v1772416132031";
 
-// Pre-cache the app shell
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll([OFFLINE_URL]);
-    })
-  );
-  self.skipWaiting();
-});
+// Always install fresh
+self.addEventListener("install", () => self.skipWaiting());
 
+// Claim all clients immediately
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(keys.map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
 });
 
+// Network-first for EVERYTHING
 self.addEventListener("fetch", (event) => {
-  // Network-first strategy for API calls
-  if (event.request.url.includes("/api/")) {
-    event.respondWith(
-      fetch(event.request).catch(() =>
-        new Response(JSON.stringify({ error: "Offline" }), {
-          headers: { "Content-Type": "application/json" },
-        })
-      )
-    );
-    return;
-  }
-
-  // Cache-first for static assets
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return cached || fetch(event.request).then((response) => {
-        // Cache successful GET responses
-        if (response.ok && event.request.method === "GET") {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      });
-    }).catch(() => caches.match(OFFLINE_URL))
+    fetch(event.request).catch(() =>
+      event.request.mode === "navigate"
+        ? new Response("<h1>Offline</h1>", { headers: { "Content-Type": "text/html" } })
+        : new Response("", { status: 503 })
+    )
   );
 });
