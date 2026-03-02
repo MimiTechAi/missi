@@ -358,84 +358,29 @@ export default function Home() {
 
   // TTS — synchronized text + speech display
   const speakText = useCallback(async (text: string, messageIndex?: number) => {
-    // Strip markdown for TTS — remove **, ##, `, - list markers, etc.
+    // Strip markdown for TTS
     const ttsText = text
-      .replace(/#{1,6}\s*/g, "")          // headers
-      .replace(/\*\*([^*]+)\*\*/g, "$1")  // bold
-      .replace(/\*([^*]+)\*/g, "$1")      // italic
-      .replace(/`([^`]+)`/g, "$1")        // inline code
-      .replace(/```[\s\S]*?```/g, "")     // code blocks
-      .replace(/^\s*[-*]\s/gm, "")        // bullet points
-      .replace(/^\s*\d+\.\s/gm, "")       // numbered lists
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // links
-      .replace(/\n{2,}/g, ". ")           // double newlines → pause
-      .trim();
+      .replace(/#{1,6}\s*/g, "")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/\*([^*]+)\*/g, "$1")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/```[\s\S]*?```/g, "")
+      .replace(/^\s*[-*]\s/gm, "")
+      .replace(/^\s*\d+\.\s/gm, "")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/\n{2,}/g, ". ")
+      .replace(/[🔍📧📅💻📊📈👁️🎨📄🌐🧮🎯✅❌⚠️🔗💡🐙📖🌤️💹🔢🎬✨🟢]/g, "")
+      .trim()
+      .slice(0, 4000); // ElevenLabs max ~5000 chars
     
-    const sentences = ttsText.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [ttsText];
-    
-    // Group sentences in pairs for natural speech flow
-    const chunks: string[] = [];
-    for (let i = 0; i < sentences.length; i += 2) {
-      const group = sentences.slice(i, i + 2).map(s => s.trim()).filter(s => s.length > 1).join(" ");
-      if (group) chunks.push(group);
+    if (!ttsText || ttsText.length < 2) {
+      setVoiceState("idle");
+      return;
     }
-    
+
     setVoiceState("speaking");
-    // spokenSoFar tracking removed // Reset
-    let accumulated = "";
     
-    for (const chunk of chunks) {
-      // Reveal this chunk's text BEFORE audio plays (like subtitles appearing)
-      accumulated += (accumulated ? " " : "") + chunk;
-      // spokenSoFar tracking removed
-      
-      // Update the message in-place so chat panel shows progressive text
-      if (messageIndex !== undefined) {
-        setMessages(prev => {
-          const updated = [...prev];
-          if (updated[messageIndex]) {
-            updated[messageIndex] = { ...updated[messageIndex], displayedContent: accumulated };
-          }
-          return updated;
-        });
-      }
-      
-      try {
-        const res = await fetch("/api/tts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: chunk, language: sttLangRef.current, voiceId: currentVoiceId }),
-        });
-        if (res.ok) {
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-          await new Promise<void>((resolve) => {
-            if (audioRef.current) {
-              audioRef.current.src = url;
-              audioRef.current.onended = () => { URL.revokeObjectURL(url); resolve(); };
-              audioRef.current.onerror = () => { URL.revokeObjectURL(url); resolve(); };
-              audioRef.current.onpause = () => { URL.revokeObjectURL(url); resolve(); }; // Barge-in: resolve on pause so speakText exits cleanly
-              speechSynthesis.cancel(); // Safety: kill any lingering browser TTS
-              audioRef.current.play().catch(() => resolve());
-            } else resolve();
-          });
-          // If barge-in interrupted, stop speaking remaining chunks
-          if (audioRef.current?.paused && audioRef.current?.currentTime === 0) {
-            break; // Exit chunk loop — user is talking
-          }
-        } else {
-          // ElevenLabs failed — skip chunk silently (don't mix voices with browser TTS)
-          // Browser TTS has completely different voice quality and causes jarring switches
-          console.warn("ElevenLabs TTS failed for chunk, skipping voice for this chunk");
-        }
-      } catch {
-        // Network error — skip chunk silently to avoid voice mixing
-        console.warn("TTS network error, skipping voice for this chunk");
-      }
-    }
-    
-    // Reveal full text at the end
-    // spokenSoFar tracking removed
+    // Show full text immediately (no progressive reveal — instant)
     if (messageIndex !== undefined) {
       setMessages(prev => {
         const updated = [...prev];
@@ -446,15 +391,38 @@ export default function Home() {
       });
     }
     
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: ttsText, language: sttLangRef.current, voiceId: currentVoiceIdRef.current }),
+      });
+      if (res.ok && audioRef.current) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        await new Promise<void>((resolve) => {
+          if (audioRef.current) {
+            audioRef.current.src = url;
+            audioRef.current.onended = () => { URL.revokeObjectURL(url); resolve(); };
+            audioRef.current.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+            audioRef.current.onpause = () => { URL.revokeObjectURL(url); resolve(); };
+            speechSynthesis.cancel();
+            audioRef.current.play().catch(() => resolve());
+          } else resolve();
+        });
+      }
+    } catch {
+      // TTS failed — continue silently
+    }
+    
     setAudioLevel(0);
     if (shouldRelistenRef.current && startListeningRef.current) {
-      // Continuous mode: go directly to listening (no idle gap)
       setVoiceState("listening");
-      setTimeout(() => startListeningRef.current?.(), 600);
+      setTimeout(() => startListeningRef.current?.(), 400);
     } else {
       setVoiceState("idle");
     }
-  }, []); // No deps needed — uses refs
+    }, []); // No deps needed — uses refs
 
   // ── Streaming TTS — speaks sentences as they arrive during text streaming ──
   const processTtsQueue = useCallback(async () => {
@@ -586,46 +554,8 @@ export default function Home() {
     ttsPlayingRef.current = false;
     ttsBufferRef.current = "";
 
-    // Filler audio — speak a brief acknowledgment while LLM is thinking (VOICE ONLY)
-    // Only play filler if API takes > 1.5s (FIX #14 — no filler for quick answers)
-    let fillerPromise: Promise<void> = Promise.resolve();
     let fillerTimeout: ReturnType<typeof setTimeout> | null = null;
-    if (fromVoice) {
-    const fillers: Record<string, string[]> = {
-      "de": ["Moment...", "Einen Augenblick...", "Lass mich nachsehen..."],
-      "fr": ["Un instant...", "Laissez-moi vérifier..."],
-      "es": ["Un momento...", "Déjame revisar..."],
-      "en": ["Let me check...", "One moment...", "Looking into that..."],
-    };
-    const langKey = sttLangRef.current.split("-")[0];
-    const fillerList = fillers[langKey] || fillers["en"];
-    const filler = fillerList[Math.floor(Math.random() * fillerList.length)];
-    
-    // Fire filler TTS only after 1.5s delay — skip for fast responses (FIX #14)
-    fillerPromise = new Promise<void>((resolveFiller) => {
-      fillerTimeout = setTimeout(async () => {
-      try {
-        const res = await fetch("/api/tts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: filler, language: sttLangRef.current, voiceId: currentVoiceIdRef.current }),
-        });
-        if (res.ok && audioRef.current) {
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-          audioRef.current.src = url;
-          audioRef.current.onended = () => URL.revokeObjectURL(url);
-          speechSynthesis.cancel(); // Kill any browser TTS before ElevenLabs
-          await audioRef.current.play().catch(() => {});
-        } else if (!res.ok) {
-          // ElevenLabs unavailable — skip filler to avoid voice mixing
-          console.warn("ElevenLabs unavailable for filler");
-        }
-      } catch {}
-      resolveFiller();
-      }, 1500); // 1.5s delay before filler
-    });
-    }
+    const fillerPromise = Promise.resolve();
 
     try {
       // Keep last 16 messages for context window management (prevents overflow + saves cost)
@@ -939,10 +869,7 @@ export default function Home() {
 
         // Only speak response if original message was voice input
         if (fromVoice) {
-          flushStreamingTts(streamedContent);
-          if (!ttsPlayingRef.current && !ttsQueueRef.current.length) {
-            await speakText(streamedContent, msgIndex);
-          }
+          await speakText(streamedContent, msgIndex);
         } else {
           // Non-voice response — but if continuous mode, restart listening
           if (shouldRelistenRef.current && startListeningRef.current) {
