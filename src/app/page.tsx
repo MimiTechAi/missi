@@ -636,7 +636,8 @@ export default function Home() {
       const apiStart = Date.now();
       const controller = new AbortController();
       abortControllerRef.current = controller;
-      const res = await fetch("/api/chat", {
+      // Retry once on 503 (Vercel cold start)
+      let res = await fetch("/api/chat", {
         method: "POST",
         signal: controller.signal,
         headers: { "Content-Type": "application/json" },
@@ -651,6 +652,23 @@ export default function Home() {
           },
         }),
       });
+
+      // Retry on 503 (Vercel cold start / serverless timeout)
+      if (res.status === 503 || res.status === 502) {
+        await new Promise(r => setTimeout(r, 1500));
+        const retryController = new AbortController();
+        abortControllerRef.current = retryController;
+        res = await fetch("/api/chat", {
+          method: "POST",
+          signal: retryController.signal,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: chatMessages, permissions: {} }),
+        });
+      }
+      
+      if (!res.ok && !res.body) {
+        throw new Error(`API error: ${res.status}`);
+      }
 
       // ── SSE Stream Reader ──
       const reader = res.body!.getReader();
