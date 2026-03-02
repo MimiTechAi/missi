@@ -196,30 +196,7 @@ export default function Home() {
     gmailToken: string | null;
     folderFiles: string[] | null;
   }>({ gmailToken: null, folderFiles: null });
-  const [sttLang, setSttLang] = useState(() => {
-    if (typeof window !== "undefined") {
-      // URL param override: ?lang=en or ?lang=fr
-      const urlLang = new URLSearchParams(window.location.search).get("lang");
-      if (urlLang) {
-        const langMap: Record<string, string> = {
-          "de": "de-DE", "en": "en-US", "fr": "fr-FR", "es": "es-ES",
-          "it": "it-IT", "pt": "pt-BR", "ja": "ja-JP", "ko": "ko-KR",
-          "zh": "zh-CN", "ru": "ru-RU",
-        };
-        return langMap[urlLang] || urlLang;
-      }
-      const browserLang = navigator.language || "en-US";
-      // Map common browser languages to supported STT languages
-      const langMap: Record<string, string> = {
-        "de": "de-DE", "en": "en-US", "fr": "fr-FR", "es": "es-ES",
-        "it": "it-IT", "pt": "pt-BR", "ja": "ja-JP", "ko": "ko-KR",
-        "zh": "zh-CN", "ru": "ru-RU",
-      };
-      const short = browserLang.split("-")[0];
-      return langMap[short] || browserLang;
-    }
-    return "en-US";
-  });
+  const [sttLang, setSttLang] = useState("en-US");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [composioConnections, setComposioConnections] = useState<Record<string, boolean>>({});
   const [connectingToolkit, setConnectingToolkit] = useState<string | null>(null);
@@ -261,6 +238,21 @@ export default function Home() {
   }, []);
   
   // Keep ref in sync for callbacks
+  // Auto-detect language on mount: URL param > browser language
+  useEffect(() => {
+    const langMap: Record<string, string> = {
+      "de": "de-DE", "en": "en-US", "fr": "fr-FR", "es": "es-ES",
+      "it": "it-IT", "pt": "pt-BR", "ja": "ja-JP", "ko": "ko-KR",
+      "zh": "zh-CN", "ru": "ru-RU",
+    };
+    const urlLang = new URLSearchParams(window.location.search).get("lang");
+    if (urlLang && langMap[urlLang]) {
+      setSttLang(langMap[urlLang]);
+    } else {
+      const short = (navigator.language || "en-US").split("-")[0];
+      if (langMap[short]) setSttLang(langMap[short]);
+    }
+  }, []);
   useEffect(() => { sttLangRef.current = sttLang; }, [sttLang]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
