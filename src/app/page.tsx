@@ -198,6 +198,16 @@ export default function Home() {
   }>({ gmailToken: null, folderFiles: null });
   const [sttLang, setSttLang] = useState(() => {
     if (typeof window !== "undefined") {
+      // URL param override: ?lang=en or ?lang=fr
+      const urlLang = new URLSearchParams(window.location.search).get("lang");
+      if (urlLang) {
+        const langMap: Record<string, string> = {
+          "de": "de-DE", "en": "en-US", "fr": "fr-FR", "es": "es-ES",
+          "it": "it-IT", "pt": "pt-BR", "ja": "ja-JP", "ko": "ko-KR",
+          "zh": "zh-CN", "ru": "ru-RU",
+        };
+        return langMap[urlLang] || urlLang;
+      }
       const browserLang = navigator.language || "en-US";
       // Map common browser languages to supported STT languages
       const langMap: Record<string, string> = {

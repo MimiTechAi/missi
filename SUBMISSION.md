@@ -1,87 +1,65 @@
-# MISSI — Mistral Intelligent System for Seamless Interaction
+# MISSI — Hackathon Submission
 
-## 🎯 What is MISSI?
+## Project Name
+MISSI — Mistral Intelligent Super System Interface
 
-MISSI is a **voice-first AI operating system** that transforms how you interact with AI. Think Siri meets ChatGPT — but powered entirely by Mistral's model ecosystem.
+## One-Liner
+A voice-first AI operating system that intelligently routes queries across 6 specialized Mistral models, executes 28 autonomous tools, and speaks back naturally in 10 languages.
 
-Say **"Hey MISSI"** and she wakes up. Ask her anything — she'll search the web, check your weather, analyze your stocks, read your emails, check your calendar, write code, create reports, translate in 10 languages — all with natural voice conversation and intelligent barge-in.
+## Live Demo
+https://jarvis-eta-smoky.vercel.app
 
-**Live Demo:** https://jarvis-eta-smoky.vercel.app
+## GitHub
+https://github.com/MimiTechAi/missi
 
-## 🏗️ Architecture
+## Description (for Submission Form)
 
-```
-Voice Input → Voxtral STT → Intelligent Model Router → Tool Execution → Streaming Response → ElevenLabs TTS
-                                    ↓
-                    ┌─────────────────────────────────────┐
-                    │  mistral-small (fast queries)       │
-                    │  mistral-large (deep reasoning)     │
-                    │  codestral (code generation)        │
-                    │  pixtral-large (vision/images)      │
-                    └─────────────────────────────────────┘
-                                    ↓
-                    ┌─────────────────────────────────────┐
-                    │  25 Built-in Tools + Live Composio                  │
-                    │  + 10,000+ via Composio             │
-                    │  (Gmail, Calendar, GitHub, Slack...) │
-                    └─────────────────────────────────────┘
-```
+MISSI is a **voice-first AI operating system** — not just a chatbot, but a fully autonomous agent that thinks, acts, and speaks.
 
-## 🔥 Key Differentiators
+### What makes MISSI unique:
 
-### 1. Voice-First with Barge-In
-Real-time bidirectional voice conversation. Start talking while MISSI is speaking — she'll stop and listen immediately. Just like talking to a real person.
+**🧠 6-Model Intelligent Routing** — MISSI analyzes every query and automatically selects the optimal Mistral model: Large for deep analysis, Small for speed, Magistral for reasoning & math, Medium for creative writing, Codestral for code, and Pixtral for vision. No other hackathon project uses the full Mistral model ecosystem this way.
 
-### 2. Intelligent 4-Model Routing
-Every query is automatically routed to the optimal Mistral model:
-- **Mistral Small** → Fast answers (weather, time, definitions)
-- **Mistral Large** → Complex reasoning (analysis, research, strategy)
-- **Codestral** → Code generation and execution
-- **Pixtral Large** → Vision analysis (drag & drop images)
+**🎙️ True Voice-First Experience** — Powered by Voxtral Small (Mistral-native STT) and ElevenLabs TTS, MISSI enables natural continuous conversation in 10 languages (DE, EN, FR, ES, IT, PT, JA, KO, ZH, RU). The entire UI auto-localizes based on your browser language.
 
-### 3. 10,000+ Tool Integrations
-25 built-in tools (web search, weather, stocks, crypto, code execution, document creation, translation...) PLUS 10,000+ external integrations via Composio — all fully functional with live OAuth connections — Gmail, Google Calendar, GitHub, Slack, Notion, and more. One-click OAuth connection.
+**🛠️ 28 Autonomous Tools** — From web search and real-time stock/crypto prices to Gmail, Google Calendar, GitHub integration, document generation, chart creation, and OCR — MISSI plans multi-step workflows and executes up to 8 rounds of tool calls autonomously.
 
-### 4. Multi-Language Native
-Speaks and understands 10 languages natively. Automatic language detection — speak German, get German answers with German voice. Powered by Voxtral STT + ElevenLabs multilingual TTS.
+**🔗 10,000+ Integrations** — Via Composio's V3 Tool Router Session API, MISSI connects to Gmail, Google Calendar, GitHub, Slack, Notion, Google Drive, and thousands more with managed OAuth.
 
-### 5. Autonomous Multi-Step Agent
-Complex queries trigger automatic planning: MISSI creates an execution plan, chains tools intelligently (search → read → analyze → create document), and streams results in real-time with live tool activity cards.
+**📄 Professional Output** — Documents are generated as styled HTML with data tables, metric cards, charts, and branded headers. Charts use custom SVG rendering with gradient fills and grid lines.
 
-## 🛠️ Mistral API Usage
+**👁️ Multimodal** — Drag & drop images for instant analysis via Pixtral Large. Analyze documents via Mistral OCR.
 
-| API | Model | Purpose |
-|---|---|---|
-| Chat Completions | mistral-small-latest | Fast queries, planning, suggestions |
-| Chat Completions | mistral-large-latest | Deep reasoning, analysis |
-| Chat Completions | codestral-latest | Code generation |
-| Chat Completions | pixtral-large-latest | Vision/image analysis |
-| Audio Transcriptions | voxtral-mini-latest | Speech-to-Text |
-| Conversations API | mistral-large-latest | Native web search with citations |
-| Function Calling | All models | 25 custom tools |
+### Technical Highlights:
+- Next.js 16, React 19, TypeScript, Tailwind CSS 4
+- Mistral AI SDK 1.14.1 with SSE streaming
+- Custom intelligent model router (not hardcoded — real-time query analysis)
+- Autonomous planning engine with up to 8 execution rounds
+- Canvas panel for document rendering (iframe sandboxed)
+- Full i18n across 10 languages
 
-## 🎨 UX Features
+### Mistral Models Used:
+1. `mistral-large-latest` — General intelligence
+2. `mistral-small-latest` — Fast responses
+3. `magistral-medium-latest` — Deep reasoning
+4. `mistral-medium-latest` — Creative writing
+5. `codestral-latest` — Code generation
+6. `pixtral-large-latest` — Vision
+7. `voxtral-small-latest` — Speech-to-text
+8. `mistral-ocr-latest` — Document OCR
 
-- **PWA** — Installable on any device
-- **Adaptive streaming** — Punctuation-aware pacing for natural reading
-- **Skeleton loading** — Shimmer placeholders while thinking
-- **Live tool cards** — See tools executing in real-time
-- **Source citations** — Perplexity-style source cards
-- **Artifact panel** — Claude-style document viewer
-- **Wake word** — "Hey MISSI" activates voice mode
-- **6 voices** — Switch MISSI's voice mid-conversation
-- **Sound effects** — Subtle audio feedback
-- **Dark mode ready** — Clean white UI with orange accents
+### Hackathon Categories:
+- 🌍 **Global Winner** — Full Mistral ecosystem utilization
+- 🎙️ **Best Voice Use Case (ElevenLabs)** — Continuous multilingual voice conversation
+- 🤖 **Best Use of Agent Skills** — 28 tools with autonomous multi-step planning
+- 🔗 **Best Integration (Composio)** — Gmail, Calendar, GitHub + 10,000+ tools
 
-## 👥 Team
-
+### Team
 **MiMi Tech AI** — Michael Bemler & Michael Soppa
-- AI Strategy & Consulting, Digital Twins, Process Automation
-- NVIDIA Connect Program member
-- Based in Black Forest, Germany 🇩🇪
+🌐 mimitechai.com · 🐙 github.com/MimiTechAi
 
-## 🔗 Links
+---
 
-- **Live:** https://jarvis-eta-smoky.vercel.app
-- **GitHub:** https://github.com/MimiTechAi/missi
-- **Website:** https://mimitechai.com
+## Short Description (if character-limited)
+
+MISSI — Voice-first AI OS with 6 Mistral models (Large, Small, Magistral, Medium, Codestral, Pixtral), 28 autonomous tools, 10,000+ integrations via Composio, ElevenLabs voice in 10 languages, and professional document/chart generation. Speak naturally, MISSI plans & executes autonomously.
