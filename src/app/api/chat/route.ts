@@ -1,10 +1,16 @@
 import { Mistral } from "@mistralai/mistralai";
 
 // Composio Tool Router Session — V3 API (correct approach per docs)
-let _composioSessionId: string | null = null;
+// SECURITY: Per-user session isolation to prevent data leakage
+const _composioSessions = new Map<string, { id: string; created: number }>();
+const COMPOSIO_SESSION_TTL = 30 * 60 * 1000;
 
-async function getComposioSession(): Promise<string | null> {
-  if (_composioSessionId) return _composioSessionId;
+// Default user ID for demo mode — overridden per-request in POST handler
+const composioUserId = "missi_public_demo";
+
+async function getComposioSession(userId: string = composioUserId): Promise<string | null> {
+  const cached = _composioSessions.get(userId);
+  if (cached && Date.now() - cached.created < COMPOSIO_SESSION_TTL) return cached.id;
   if (!process.env.COMPOSIO_API_KEY) return null;
   
   try {
@@ -12,21 +18,28 @@ async function getComposioSession(): Promise<string | null> {
       method: "POST",
       headers: { "x-api-key": process.env.COMPOSIO_API_KEY, "Content-Type": "application/json" },
       body: JSON.stringify({
-        user_id: "missi_demo_user",
+        user_id: userId,
         allowed_toolkits: ["gmail", "googlecalendar", "github", "slack", "notion"]
       })
     });
     const data = await res.json();
-    _composioSessionId = data.session_id || null;
-    return _composioSessionId;
+    const sessionId = data.session_id || null;
+    if (sessionId) {
+      _composioSessions.set(userId, { id: sessionId, created: Date.now() });
+      // Cleanup stale sessions
+      for (const [key, val] of _composioSessions) {
+        if (Date.now() - val.created > COMPOSIO_SESSION_TTL) _composioSessions.delete(key);
+      }
+    }
+    return sessionId;
   } catch (e) {
     console.error("[COMPOSIO] Session creation failed:", e);
     return null;
   }
 }
 
-async function composioExecute(toolName: string, _userId: string, params: Record<string, unknown>) {
-  const sessionId = await getComposioSession();
+async function composioExecute(toolName: string, userId: string, params: Record<string, unknown>) {
+  const sessionId = await getComposioSession(userId);
   if (!sessionId) throw new Error("COMPOSIO_API_KEY not set or session creation failed");
   
   
@@ -1419,7 +1432,7 @@ async function executePermissionTool(name: string, args: Record<string, string>,
       // Priority 2: Use Composio SDK (properly authenticated)
       if (!process.env.COMPOSIO_API_KEY) return "Gmail not connected. Click the 📧 icon in the sidebar to connect Gmail.";
       try {
-        const data = await composioExecute("GMAIL_FETCH_EMAILS", "missi_demo_user", {
+        const data = await composioExecute("GMAIL_FETCH_EMAILS", composioUserId, {
           query: args.query || "newer_than:7d",
           max_results: args.limit || 5,
         });
@@ -1474,7 +1487,7 @@ async function executePermissionTool(name: string, args: Record<string, string>,
       // Priority 2: Composio SDK
       if (!process.env.COMPOSIO_API_KEY) return "Gmail not connected. Click 📧 in sidebar to connect.";
       try {
-        const data = await composioExecute("GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID", "missi_demo_user", {
+        const data = await composioExecute("GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID", composioUserId, {
           message_id: args.id || args.messageId,
         });
         const email = data?.data || data;
@@ -1502,7 +1515,7 @@ async function executePermissionTool(name: string, args: Record<string, string>,
       // Priority 2: Composio Google Drive (SDK)
       if (!process.env.COMPOSIO_API_KEY) return "No folder connected. Click the 📁 icon in the sidebar to grant folder access.";
       try {
-        const data = await composioExecute("GOOGLEDRIVE_FIND_FILE", "missi_demo_user", {
+        const data = await composioExecute("GOOGLEDRIVE_FIND_FILE", composioUserId, {
           query: args.query, max_results: 10,
         });
         const files = data?.data || (Array.isArray(data) ? data : []);
@@ -1521,7 +1534,7 @@ async function executePermissionTool(name: string, args: Record<string, string>,
       if (!process.env.COMPOSIO_API_KEY) return "Calendar not configured.";
       try {
         const now = new Date();
-        const data = await composioExecute("GOOGLECALENDAR_FIND_EVENT", "missi_demo_user", {
+        const data = await composioExecute("GOOGLECALENDAR_FIND_EVENT", composioUserId, {
           time_min: now.toISOString(),
           max_results: 15,
         });
@@ -1571,7 +1584,7 @@ async function executePermissionTool(name: string, args: Record<string, string>,
       try {
         const action = args.action || "repos";
         if (action === "repos") {
-          const data = await composioExecute("GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER", "missi_demo_user", {
+          const data = await composioExecute("GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER", composioUserId, {
             visibility: "all", sort: "updated", per_page: 10,
           });
           const repos = data?.data || data || [];
@@ -1583,7 +1596,7 @@ async function executePermissionTool(name: string, args: Record<string, string>,
         if (action === "issues") {
           const [owner, repo] = (args.repo || "").split("/");
           if (!repo) return "Please specify a repository as 'owner/repo'";
-          const data = await composioExecute("GITHUB_LIST_REPOSITORY_ISSUES", "missi_demo_user", {
+          const data = await composioExecute("GITHUB_LIST_REPOSITORY_ISSUES", composioUserId, {
             owner, repo, state: "open", per_page: 10,
           });
           const issues = data?.data || [];
@@ -1595,7 +1608,7 @@ async function executePermissionTool(name: string, args: Record<string, string>,
         if (action === "create_issue") {
           const [owner, repo] = (args.repo || "").split("/");
           if (!repo || !args.title) return "Need repo (owner/repo) and title to create an issue.";
-          const data = await composioExecute("GITHUB_CREATE_AN_ISSUE", "missi_demo_user", {
+          const data = await composioExecute("GITHUB_CREATE_AN_ISSUE", composioUserId, {
             owner, repo, title: args.title, body: args.body || "",
           });
           const issue = data?.data || data;

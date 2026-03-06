@@ -8,12 +8,17 @@ export async function GET(req: NextRequest) {
   }
 
   // Send code back to the main app via postMessage
+  // SECURITY: Use specific origin instead of "*" to prevent code interception
+  const appOrigin = process.env.NEXTAUTH_URL || process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}` 
+    : "http://localhost:3333";
+  
   const html = `<!DOCTYPE html>
 <html><body>
 <h2>✅ Gmail Connected!</h2>
 <p>This window will close automatically...</p>
 <script>
-  window.opener?.postMessage({ type: "gmail_auth", code: "${code}" }, "*");
+  window.opener?.postMessage({ type: "gmail_auth", code: "${code}" }, "${appOrigin}");
   setTimeout(() => window.close(), 1500);
 </script>
 </body></html>`;
