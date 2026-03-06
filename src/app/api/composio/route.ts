@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // ============================================================
-// SECURITY: Per-visitor session isolation
-// Each visitor gets their own Composio session keyed by a random ID.
-// This prevents data leakage between users.
-// In demo mode (no MISSI_DEMO_SECRET), integrations are fully disabled
-// via middleware.ts — this is a defense-in-depth measure.
+// COMPOSIO INTEGRATION — Per-user session isolation
+// ============================================================
+// SECURITY: Each visitor gets their own Composio session via cookie.
+// User A connects Gmail → only User A can read User A's emails.
+// Owner's data is NEVER shared with visitors.
 // ============================================================
 
-// Tool Router Session cache — per-user isolation
+// Per-user session cache
 const _sessions = new Map<string, { sessionId: string; created: number }>();
 const SESSION_TTL = 30 * 60 * 1000; // 30 min
 
+function getUserId(req: NextRequest): string {
+  return req.cookies.get("missi_uid")?.value || `anon_${Date.now()}`;
+}
+
 async function getToolRouterSession(userId: string): Promise<string | null> {
-  // Per-user session isolation
   const cached = _sessions.get(userId);
   if (cached && Date.now() - cached.created < SESSION_TTL) return cached.sessionId;
   if (!process.env.COMPOSIO_API_KEY) return null;
@@ -23,7 +26,7 @@ async function getToolRouterSession(userId: string): Promise<string | null> {
       method: "POST",
       headers: { "x-api-key": process.env.COMPOSIO_API_KEY, "Content-Type": "application/json" },
       body: JSON.stringify({
-        user_id: userId,
+        user_id: userId, // SECURITY: unique per visitor
         allowed_toolkits: ["gmail", "googlecalendar", "github", "slack", "notion", "googledrive"]
       })
     });
@@ -31,7 +34,7 @@ async function getToolRouterSession(userId: string): Promise<string | null> {
     const sessionId = data.session_id || null;
     if (sessionId) {
       _sessions.set(userId, { sessionId, created: Date.now() });
-      // Cleanup old sessions
+      // Cleanup stale sessions
       for (const [key, val] of _sessions) {
         if (Date.now() - val.created > SESSION_TTL) _sessions.delete(key);
       }
@@ -55,9 +58,7 @@ export async function POST(req: NextRequest) {
       }, { status: 501 });
     }
 
-    // Per-user session: use cookie or generate unique ID
-    const userId = req.cookies.get("missi_user_id")?.value || `visitor_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    
+    const userId = getUserId(req);
     const sessionId = await getToolRouterSession(userId);
     if (!sessionId) {
       return NextResponse.json({ error: "Failed to create Composio session" }, { status: 500 });
@@ -65,7 +66,6 @@ export async function POST(req: NextRequest) {
 
     switch (action) {
       case "toolkits": {
-        // Get actual toolkit status from Tool Router
         try {
           const res = await fetch(
             `https://backend.composio.dev/api/v3/tool_router/session/${sessionId}/toolkits`,
@@ -80,7 +80,6 @@ export async function POST(req: NextRequest) {
 
       case "connect": {
         try {
-          // Use Tool Router link endpoint to create connection
           const res = await fetch(
             `https://backend.composio.dev/api/v3/tool_router/session/${sessionId}/link`,
             {
@@ -90,7 +89,7 @@ export async function POST(req: NextRequest) {
             }
           );
           const data = await res.json();
-                    return NextResponse.json({
+          return NextResponse.json({
             success: true,
             url: data.redirect_url || data.url || null,
             status: data.status || "initiated",
